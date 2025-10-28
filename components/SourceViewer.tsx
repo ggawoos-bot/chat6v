@@ -254,7 +254,7 @@ export const SourceViewer: React.FC<SourceViewerProps> = ({
               id={`chunk-${chunk.id}`}
               className={`p-4 rounded-lg border-2 transition-all duration-200 cursor-pointer ${
                 isHighlighted
-                  ? 'border-yellow-500 bg-yellow-100 text-brand-text-primary highlight-animation shadow-lg'
+                  ? 'border-yellow-600 bg-yellow-200 text-gray-900 font-medium highlight-animation shadow-xl'
                   : 'border-brand-secondary bg-brand-surface hover:border-brand-primary hover:shadow-sm'
               }`}
               onClick={() => handleChunkClick(chunk.id)}

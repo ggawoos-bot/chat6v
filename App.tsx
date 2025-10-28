@@ -430,11 +430,11 @@ function App() {
           <div className={`flex-1 min-w-[300px] max-w-full ${isResizing ? 'opacity-90' : 'opacity-100'} transition-opacity duration-200`} style={{ flexShrink: 1 }}>
             <div className="flex-1 flex flex-col min-w-0 h-full">
               <ChatWindow
-                key={chatKey} // 키를 사용하여 강제 리렌더링 제어
+                key="chat-window" // ✅ 고정 키 사용 (리사이즈나 SourceViewer 변경 시에도 유지)
                 onSendMessage={handleSendMessage}
                 onStreamingMessage={handleStreamingMessage}
                 onResetMessages={() => setMessages([])}
-                resetTrigger={chatKey} // 리셋 트리거 전달
+                resetTrigger={chatKey} // 이 값이 변경될 때만 리셋
                 placeholder="금연사업 관련 문의사항을 입력하세요..."
               />
             </div>
