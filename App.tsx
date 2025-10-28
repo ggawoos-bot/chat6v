@@ -26,9 +26,9 @@ function App() {
   const [highlightedChunkId, setHighlightedChunkId] = useState<string>();
   
   // ✅ 사이드바 리사이징 관련 상태
-  const [sidebarWidth, setSidebarWidth] = useState<number>(320); // 기본값: 320px (w-80)
+  const [sidebarWidth, setSidebarWidth] = useState<number>(450); // 기본값: 450px (약 25-30%)
   const [isResizing, setIsResizing] = useState(false);
-  const [originalSidebarWidth, setOriginalSidebarWidth] = useState<number>(320); // 원래 사이드바 너비 저장
+  const [originalSidebarWidth, setOriginalSidebarWidth] = useState<number>(450); // 원래 사이드바 너비 저장
   
   // ✅ 리사이즈 핸들러들
   const handleResizeStart = (e: React.MouseEvent) => {
