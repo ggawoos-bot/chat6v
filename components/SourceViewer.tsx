@@ -16,12 +16,31 @@ export const SourceViewer: React.FC<SourceViewerProps> = ({
   const [isLoading, setIsLoading] = useState(false);
   const [documentTitle, setDocumentTitle] = useState<string>('');
   const [currentPage, setCurrentPage] = useState<number>(1);
-  const chunksPerPage = 3; // 한 페이지에 보여줄 청크 수
   const firestoreService = FirestoreService.getInstance();
   const highlightTimeoutRef = useRef<NodeJS.Timeout>();
   
-  // 전체 페이지 수 계산
-  const totalPages = Math.ceil(chunks.length / chunksPerPage);
+  // ✅ PDF 페이지 번호로 그룹화
+  const chunksByPage = React.useMemo(() => {
+    const grouped: Record<number, PDFChunk[]> = {};
+    chunks.forEach(chunk => {
+      const pageNum = chunk.metadata?.page || 0;
+      if (!grouped[pageNum]) {
+        grouped[pageNum] = [];
+      }
+      grouped[pageNum].push(chunk);
+    });
+    return grouped;
+  }, [chunks]);
+
+  // ✅ PDF 페이지 번호 배열
+  const pdfPageNumbers = React.useMemo(() => {
+    return Object.keys(chunksByPage)
+      .map(Number)
+      .sort((a, b) => a - b);
+  }, [chunksByPage]);
+
+  // ✅ 전체 페이지 수는 PDF 페이지 개수
+  const totalPages = pdfPageNumbers.length;
   
   // 현재 페이지의 청크 추출
   const getPaginatedChunks = () => {
@@ -39,10 +58,13 @@ export const SourceViewer: React.FC<SourceViewerProps> = ({
       }
     }
     
-    // 기본 페이지네이션
-    const startIndex = (currentPage - 1) * chunksPerPage;
-    const endIndex = startIndex + chunksPerPage;
-    return chunks.slice(startIndex, endIndex);
+    // ✅ PDF 페이지 번호 기준으로 청크 가져오기
+    if (pdfPageNumbers.length > 0 && currentPage > 0) {
+      const currentPageNum = pdfPageNumbers[currentPage - 1];
+      return chunksByPage[currentPageNum] || [];
+    }
+    
+    return [];
   };
   
   // 주변 페이지 정보 가져오기 (미리보기용)
@@ -195,7 +217,11 @@ export const SourceViewer: React.FC<SourceViewerProps> = ({
         </div>
         <div className="flex items-center justify-between">
           <p className="text-xs text-brand-text-secondary">
-            총 {chunks.length}개 청크
+            {pdfPageNumbers.length > 0 && currentPage > 0 ? (
+              <>PDF {pdfPageNumbers[currentPage - 1]}페이지 (청크 {getPaginatedChunks().length}개)</>
+            ) : (
+              <>총 {chunks.length}개 청크</>
+            )}
           </p>
           <div className="flex items-center gap-2">
             {highlightedChunkId && onChunkSelect && (
