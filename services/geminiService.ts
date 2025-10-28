@@ -1774,45 +1774,6 @@ Here is the source material:
             searchMetrics: advancedSearchResult.searchMetrics,
             qualityMetrics: advancedSearchResult.qualityMetrics
           });
-          
-          // ✅ 사용된 청크 참조 정보 저장 (실제 Firestore documentId로 변환)
-          const allDocuments = await this.firestoreService.getAllDocuments();
-          this.lastChunkReferences = advancedSearchResult.chunks
-            .map((chunk, index) => {
-              // ✅ documentId를 직접 사용 (이미 Chunk 인터페이스에 포함됨)
-              const documentId = chunk.documentId;
-              
-              if (!documentId) {
-                console.warn('⚠️ chunk에 documentId가 없음:', { 
-                  chunkId: chunk.id, 
-                  title: chunk.metadata?.title,
-                  source: chunk.metadata?.source 
-                });
-                return null;
-              }
-              
-              // documentId로 문서 조회
-              const matchingDoc = allDocuments.find(doc => doc.id === documentId);
-              
-              if (!matchingDoc) {
-                console.warn('⚠️ 문서를 찾을 수 없음:', documentId);
-              }
-              
-              return {
-                chunkId: chunk.id,
-                documentId,
-                documentTitle: matchingDoc?.title || chunk.metadata?.title || '',
-                page: chunk.metadata?.page,
-                section: chunk.metadata?.section,
-                content: chunk.content,
-                metadata: {
-                  startPos: chunk.metadata?.startPosition || 0,
-                  endPos: chunk.metadata?.endPosition || 0,
-                  position: chunk.metadata?.position || 0
-                }
-              };
-            })
-            .filter(ref => ref !== null);
 
           // 2.5. 청크에서 출처 정보 생성 (문서 유형별 처리)
           const sourceInfo = this.generateSourceInfoFromChunks(advancedSearchResult.chunks);
@@ -1864,6 +1825,7 @@ Here is the source material:
           };
           
           let finalContextText = contextText;
+          let finalChunks = advancedSearchResult.chunks;  // ✅ 최종 청크 추적
           
           if (contextText.length > MAX_CONTEXT_LENGTH) {
             console.warn(`⚠️ 컨텍스트 길이 초과: ${contextText.length}자 (제한: ${MAX_CONTEXT_LENGTH}자)`);
@@ -1884,6 +1846,9 @@ Here is the source material:
             
             const selectedChunks = sortedByRelevance.slice(0, optimalCount);
             
+            // ✅ 최종 청크 업데이트
+            finalChunks = selectedChunks;
+            
             // 선택된 청크로 컨텍스트 재구성
             finalContextText = selectedChunks
               .map((chunk, index) => {
@@ -1893,6 +1858,45 @@ Here is the source material:
             
             console.log(`✅ 컨텍스트 길이 조정: ${finalContextText.length}자 (${selectedChunks.length}개 청크)`);
           }
+
+          // ✅ AI가 실제로 사용한 청크로 chunkReferences 생성
+          const allDocuments = await this.firestoreService.getAllDocuments();
+          this.lastChunkReferences = finalChunks
+            .map((chunk, index) => {
+              // ✅ documentId를 직접 사용 (이미 Chunk 인터페이스에 포함됨)
+              const documentId = chunk.documentId;
+              
+              if (!documentId) {
+                console.warn('⚠️ chunk에 documentId가 없음:', { 
+                  chunkId: chunk.id, 
+                  title: chunk.metadata?.title,
+                  source: chunk.metadata?.source 
+                });
+                return null;
+              }
+              
+              // documentId로 문서 조회
+              const matchingDoc = allDocuments.find(doc => doc.id === documentId);
+              
+              if (!matchingDoc) {
+                console.warn('⚠️ 문서를 찾을 수 없음:', documentId);
+              }
+              
+              return {
+                chunkId: chunk.id,
+                documentId,
+                documentTitle: matchingDoc?.title || chunk.metadata?.title || '',
+                page: chunk.metadata?.page,
+                section: chunk.metadata?.section,
+                content: chunk.content,
+                metadata: {
+                  startPos: chunk.metadata?.startPosition || 0,
+                  endPos: chunk.metadata?.endPosition || 0,
+                  position: chunk.metadata?.position || 0
+                }
+              };
+            })
+            .filter(ref => ref !== null);
 
           log.info(`컨텍스트 기반 세션 생성`, { 
             contextLength: finalContextText.length,
