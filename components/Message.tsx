@@ -2,6 +2,7 @@ import React, { useState, useCallback, useRef } from 'react';
 import ReactMarkdown from 'react-markdown';
 import remarkGfm from 'remark-gfm';
 import { Message as MessageType } from '../types';
+import { useTooltip } from './TooltipContext';
 import UserIcon from './icons/UserIcon';
 import BotIcon from './icons/BotIcon';
 import CopyIcon from './icons/CopyIcon';
@@ -14,8 +15,9 @@ const Message: React.FC<MessageProps> = ({ message }) => {
   const isUser = message.role === 'user';
   const Icon = isUser ? UserIcon : BotIcon;
   const [isCopied, setIsCopied] = useState(false);
-  const [tooltipRef, setTooltipRef] = useState<string | null>(null);
-  const [tooltipContent, setTooltipContent] = useState<{title: string, content: string} | null>(null);
+  
+  // ✅ 전역 툴팁 관리자 사용
+  const { tooltipRef, tooltipContent, showTooltip, hideTooltip, cancelHide, isTooltipVisible } = useTooltip();
   
   // ✅ 디바운스를 위한 ref
   const hoverTimeoutRef = React.useRef<NodeJS.Timeout | null>(null);
@@ -68,34 +70,25 @@ const Message: React.FC<MessageProps> = ({ message }) => {
     }
     
     if (show) {
-      // ✅ 새로운 툴팁을 열기 전에 다른 툴팁을 먼저 닫기
-      if (tooltipRef && tooltipRef !== uniqueKey) {
-        setTooltipRef(null);
-        setTooltipContent(null);
-      }
-      
       hoverTimeoutRef.current = setTimeout(() => {
         const chunkIndex = referenceNumber - 1;
         if (chunkIndex >= 0 && chunkIndex < message.chunkReferences.length) {
           const chunk = message.chunkReferences[chunkIndex];
-          setTooltipRef(uniqueKey);
           const content = chunk.content.substring(0, 2000) + (chunk.content.length > 2000 ? '...' : '');
           const highlightedContent = highlightKeywords(content, chunk.keywords);
           
-          setTooltipContent({
+          // ✅ 전역 툴팁 관리자 사용
+          showTooltip(uniqueKey, {
             title: chunk.documentTitle || chunk.title || '참조',
             content: highlightedContent
           });
         }
       }, 150); // 150ms 디바운스
     } else {
-      // ✅ 현재 닫으려는 툴팁과 같은 경우만 닫기
-      if (tooltipRef === uniqueKey) {
-        setTooltipRef(null);
-        setTooltipContent(null);
-      }
+      // ✅ 딜레이 추가: 툴팁에 마우스를 올릴 수 있는 시간 (300ms)
+      hideTooltip(uniqueKey, 300);
     }
-  }, [message.chunkReferences, tooltipRef, tooltipContent]);
+  }, [message.chunkReferences, showTooltip, hideTooltip]);
 
   // 참조 번호 클릭 핸들러
   const handleReferenceClick = (referenceNumber: number) => {
@@ -202,11 +195,17 @@ const Message: React.FC<MessageProps> = ({ message }) => {
                                   {num}
                                 </button>
                                 {/* ✅ 툴팁 */}
-                                {tooltipRef === uniqueKey && tooltipContent && (
+                                {isTooltipVisible(uniqueKey) && tooltipContent && (
                                   <div 
                                     className="absolute top-full mt-2 left-1/2 transform -translate-x-1/2 z-50 w-[500px] max-h-[600px] overflow-y-auto bg-white border border-gray-300 rounded-lg shadow-xl p-4"
-                                    onMouseEnter={() => handleReferenceHover(num, true, uniqueKey)}
-                                    onMouseLeave={() => handleReferenceHover(num, false, uniqueKey)}
+                                    onMouseEnter={() => {
+                                      // ✅ 툴팁에 마우스가 들어오면 닫기 타이머 취소
+                                      cancelHide();
+                                    }}
+                                    onMouseLeave={() => {
+                                      // ✅ 툴팁에서 마우스가 떠나면 300ms 후 닫기
+                                      hideTooltip(uniqueKey, 300);
+                                    }}
                                   >
                                     <div className="text-sm font-semibold text-gray-800 mb-3 border-b pb-2 sticky top-0 bg-white">
                                       {tooltipContent.title}

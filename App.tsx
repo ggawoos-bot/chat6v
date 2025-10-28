@@ -6,6 +6,7 @@ import ConfirmDialog from './components/ConfirmDialog';
 import { FirestoreCacheManager } from './components/FirestoreCacheManager';
 import { AdvancedSearchTest } from './components/AdvancedSearchTest';
 import { SourceViewer } from './components/SourceViewer';
+import { TooltipProvider } from './components/TooltipContext';
 import { geminiService } from './services/geminiService';
 import { FirestoreService } from './services/firestoreService';
 import { SourceInfo as SourceInfoType } from './types';
@@ -282,7 +283,8 @@ function App() {
   }
 
   return (
-    <div className="min-h-screen bg-brand-bg text-brand-text-primary">
+    <TooltipProvider>
+      <div className="min-h-screen bg-brand-bg text-brand-text-primary">
       <div className="max-w-7xl mx-auto h-screen flex flex-col">
         <header className="bg-brand-surface border-b border-brand-secondary p-4">
           <div className="flex justify-between items-center">
@@ -474,6 +476,7 @@ function App() {
         </div>
       )}
     </div>
+    </TooltipProvider>
   );
 }
 
