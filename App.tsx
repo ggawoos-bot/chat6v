@@ -358,27 +358,22 @@ function App() {
               maxWidth: '800px'
             }}
           >
-            {/* 사이드바 헤더 (고정) */}
-            <div className="p-4 pb-2 border-b border-brand-secondary flex-shrink-0">
-              <div className="flex justify-between items-center">
-                <h2 className="text-lg font-semibold text-brand-text-primary">
-                  {selectedDocumentId ? '소스 보기' : '자료 출처'}
-                </h2>
-                <div className="flex gap-2">
-                  {selectedDocumentId && (
-                    <button
-                      onClick={() => {
-                        setSelectedDocumentId(undefined);
-                        setHighlightedChunkId(undefined);
-                      }}
-                      className="p-1 rounded-lg hover:bg-brand-secondary"
-                      title="돌아가기"
-                    >
-                      <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M10 19l-7-7m0 0l7-7m-7 7h18" />
-                      </svg>
-                    </button>
-                  )}
+            {/* 사이드바 헤더 (고정) - SourceViewer가 있을 때는 제목 없이 뒤로가기 버튼만 */}
+            {selectedDocumentId && (
+              <div className="p-4 pb-2 flex-shrink-0">
+                <div className="flex justify-between items-center">
+                  <button
+                    onClick={() => {
+                      setSelectedDocumentId(undefined);
+                      setHighlightedChunkId(undefined);
+                    }}
+                    className="p-1 rounded-lg hover:bg-brand-secondary transition-colors"
+                    title="돌아가기"
+                  >
+                    <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M10 19l-7-7m0 0l7-7m-7 7h18" />
+                    </svg>
+                  </button>
                   <button
                     onClick={() => setIsSidebarOpen(false)}
                     className="md:hidden p-1 rounded-lg hover:bg-brand-secondary"
@@ -389,10 +384,29 @@ function App() {
                   </button>
                 </div>
               </div>
-            </div>
+            )}
+            
+            {/* 자료 출처 모드일 때만 제목 표시 */}
+            {!selectedDocumentId && (
+              <div className="p-4 pb-2 border-b border-brand-secondary flex-shrink-0">
+                <div className="flex justify-between items-center">
+                  <h2 className="text-lg font-semibold text-brand-text-primary">
+                    자료 출처
+                  </h2>
+                  <button
+                    onClick={() => setIsSidebarOpen(false)}
+                    className="md:hidden p-1 rounded-lg hover:bg-brand-secondary"
+                  >
+                    <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
+                    </svg>
+                  </button>
+                </div>
+              </div>
+            )}
 
-            {/* 사이드바 내용 (스크롤 가능) */}
-            <div className="flex-1 overflow-y-auto sidebar-scroll">
+            {/* 사이드바 내용 (스크롤은 각 컴포넌트가 담당) */}
+            <div className="flex-1">
               {selectedDocumentId ? (
                 <SourceViewer
                   selectedDocumentId={selectedDocumentId}
@@ -406,7 +420,7 @@ function App() {
                   }}
                 />
               ) : (
-                <div className="p-4 space-y-2">
+                <div className="p-4 space-y-2 h-full overflow-y-auto sidebar-scroll">
                   <h3 className="text-md font-medium text-brand-text-primary">현재 자료</h3>
                   <SourceInfo sources={sources} onSourceClick={handleSourceClick} />
                 </div>
