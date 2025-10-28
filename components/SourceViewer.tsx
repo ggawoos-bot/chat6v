@@ -16,19 +16,33 @@ export const SourceViewer: React.FC<SourceViewerProps> = ({
   const [isLoading, setIsLoading] = useState(false);
   const [documentTitle, setDocumentTitle] = useState<string>('');
   const [currentPage, setCurrentPage] = useState<number>(1);
+  const [maxPdfPage, setMaxPdfPage] = useState<number>(0);
   const firestoreService = FirestoreService.getInstance();
   const highlightTimeoutRef = useRef<NodeJS.Timeout>();
   
   // ✅ PDF 페이지 번호로 그룹화
   const chunksByPage = React.useMemo(() => {
     const grouped: Record<number, PDFChunk[]> = {};
+    let maxPage = 0;
+    
     chunks.forEach(chunk => {
       const pageNum = chunk.metadata?.page || 0;
       if (!grouped[pageNum]) {
         grouped[pageNum] = [];
       }
       grouped[pageNum].push(chunk);
+      
+      // 최대 페이지 번호 추적
+      if (pageNum > maxPage) {
+        maxPage = pageNum;
+      }
     });
+    
+    // 최대 페이지 번호 업데이트
+    if (maxPage > 0) {
+      setMaxPdfPage(maxPage);
+    }
+    
     return grouped;
   }, [chunks]);
 
@@ -39,8 +53,8 @@ export const SourceViewer: React.FC<SourceViewerProps> = ({
       .sort((a, b) => a - b);
   }, [chunksByPage]);
 
-  // ✅ 전체 페이지 수는 PDF 페이지 개수
-  const totalPages = pdfPageNumbers.length;
+  // ✅ 전체 페이지 수는 실제 PDF의 최대 페이지 번호
+  const totalPages = maxPdfPage || pdfPageNumbers.length;
   
   // 현재 페이지의 청크 추출
   const getPaginatedChunks = () => {
@@ -59,12 +73,12 @@ export const SourceViewer: React.FC<SourceViewerProps> = ({
     }
     
     // ✅ PDF 페이지 번호 기준으로 청크 가져오기
-    if (pdfPageNumbers.length > 0 && currentPage > 0) {
-      const currentPageNum = pdfPageNumbers[currentPage - 1];
-      return chunksByPage[currentPageNum] || [];
-    }
+    // currentPage는 1부터 시작, 실제 PDF 페이지 번호로 변환
+    const targetPageNumber = currentPage;
     
-    return [];
+    // chunksByPage에서 해당 페이지의 청크를 가져옴
+    // 페이지에 청크가 없으면 빈 배열 반환
+    return chunksByPage[targetPageNumber] || [];
   };
   
   // 주변 페이지 정보 가져오기 (미리보기용)
@@ -128,7 +142,19 @@ export const SourceViewer: React.FC<SourceViewerProps> = ({
       const chunks = await firestoreService.getChunksByDocument(documentId);
       setChunks(chunks);
       
+      // 디버그: 청크 페이지 정보 분석
+      const pageStats: Record<number, number> = {};
+      let maxPage = 0;
+      chunks.forEach(chunk => {
+        const pageNum = chunk.metadata?.page || 0;
+        pageStats[pageNum] = (pageStats[pageNum] || 0) + 1;
+        if (pageNum > maxPage) maxPage = pageNum;
+      });
+      
+      const pageNumbers = Object.keys(pageStats).map(Number).sort((a, b) => a - b);
       console.log(`✅ 소스 뷰어: ${chunks.length}개 청크 로드 완료`);
+      console.log(`📄 PDF 최대 페이지: ${maxPage}`);
+      console.log(`📋 청크가 있는 페이지: ${pageNumbers.length}개 (${pageNumbers.slice(0, 10).join(', ')}${pageNumbers.length > 10 ? '...' : ''})`);
     } catch (error) {
       console.error('청크 로드 실패:', error);
       setChunks([]);
@@ -217,8 +243,8 @@ export const SourceViewer: React.FC<SourceViewerProps> = ({
         </div>
         <div className="flex items-center justify-between">
           <p className="text-xs text-brand-text-secondary">
-            {pdfPageNumbers.length > 0 && currentPage > 0 ? (
-              <>PDF {pdfPageNumbers[currentPage - 1]}페이지 (청크 {getPaginatedChunks().length}개)</>
+            {maxPdfPage > 0 && currentPage > 0 ? (
+              <>PDF {currentPage}페이지 (청크 {getPaginatedChunks().length}개)</>
             ) : (
               <>총 {chunks.length}개 청크</>
             )}
