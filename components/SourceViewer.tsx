@@ -17,6 +17,7 @@ export const SourceViewer: React.FC<SourceViewerProps> = ({
   const [documentTitle, setDocumentTitle] = useState<string>('');
   const [currentPage, setCurrentPage] = useState<number>(1);
   const [maxPdfPage, setMaxPdfPage] = useState<number>(0);
+  const [documentTotalPages, setDocumentTotalPages] = useState<number>(0); // ✅ 추가: 문서의 실제 총 페이지 수
   const firestoreService = FirestoreService.getInstance();
   const highlightTimeoutRef = useRef<NodeJS.Timeout>();
   
@@ -31,10 +32,17 @@ export const SourceViewer: React.FC<SourceViewerProps> = ({
     chunks.forEach((chunk, index) => {
       let pageNum;
       
-      // ✅ page 정보가 없으면 position 기반으로 추정 (3개 청크 = 1페이지)
+      // ✅ page 정보가 없으면 실제 PDF 페이지 번호를 추정
       if (allPagesZero) {
-        const chunksPerPage = 3;
-        pageNum = Math.floor(index / chunksPerPage) + 1; // 1, 1, 1, 2, 2, 2, ...
+        // 문서의 실제 총 페이지 수가 있으면 청크를 균등 분배
+        if (documentTotalPages > 0) {
+          pageNum = Math.floor((index / chunks.length) * documentTotalPages) + 1;
+          pageNum = Math.min(pageNum, documentTotalPages); // 최대 페이지 수 제한
+        } else {
+          // 문서 총 페이지 수가 없으면 기본 3개 청크 = 1페이지
+          const chunksPerPage = 3;
+          pageNum = Math.floor(index / chunksPerPage) + 1;
+        }
       } else {
         pageNum = chunk.metadata?.page || 0;
       }
@@ -56,7 +64,7 @@ export const SourceViewer: React.FC<SourceViewerProps> = ({
     }
     
     return grouped;
-  }, [chunks]);
+  }, [chunks, documentTotalPages]);
 
   // ✅ PDF 페이지 번호 배열
   const pdfPageNumbers = React.useMemo(() => {
@@ -65,8 +73,8 @@ export const SourceViewer: React.FC<SourceViewerProps> = ({
       .sort((a, b) => a - b);
   }, [chunksByPage]);
 
-  // ✅ 전체 페이지 수는 실제 PDF의 최대 페이지 번호
-  const totalPages = maxPdfPage || pdfPageNumbers.length;
+  // ✅ 전체 페이지 수는 문서의 실제 총 페이지 수를 우선 사용
+  const totalPages = documentTotalPages > 0 ? documentTotalPages : (maxPdfPage || pdfPageNumbers.length);
   
   // 현재 페이지의 청크 추출
   const getPaginatedChunks = () => {
@@ -148,6 +156,8 @@ export const SourceViewer: React.FC<SourceViewerProps> = ({
       const document = await firestoreService.getDocumentById(documentId);
       if (document) {
         setDocumentTitle(document.title);
+        setDocumentTotalPages(document.totalPages || 0); // ✅ 문서의 실제 총 페이지 수 설정
+        console.log(`📄 문서 정보: ${document.title}, 총 페이지: ${document.totalPages}`);
       }
       
       // 청크 로드
@@ -172,8 +182,12 @@ export const SourceViewer: React.FC<SourceViewerProps> = ({
       console.log(`🔍 모든 청크의 page가 0: ${allPagesZero}`);
       
       if (allPagesZero) {
-        const estimatedPages = Math.ceil(chunks.length / 3);
-        console.log(`📝 Position 기반 페이지 추정: ${estimatedPages}페이지 (청크 ${chunks.length}개 ÷ 3)`);
+        if (documentTotalPages > 0) {
+          console.log(`📝 실제 PDF 페이지 기반 분배: ${documentTotalPages}페이지에 청크 ${chunks.length}개 균등 분배`);
+        } else {
+          const estimatedPages = Math.ceil(chunks.length / 3);
+          console.log(`📝 기본 페이지 추정: ${estimatedPages}페이지 (청크 ${chunks.length}개 ÷ 3)`);
+        }
       }
     } catch (error) {
       console.error('청크 로드 실패:', error);

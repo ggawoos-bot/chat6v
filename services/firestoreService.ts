@@ -48,6 +48,7 @@ export interface PDFDocument {
   title: string;
   filename: string;
   totalChunks: number;
+  totalPages: number;  // ✅ 추가: PDF 총 페이지 수
   totalSize: number;
   processedAt: Timestamp;
   version: string;
