@@ -56,19 +56,31 @@ const Message: React.FC<MessageProps> = ({ message }) => {
         const chunk = message.chunkReferences[chunkIndex];
         console.log('✅ 찾은 청크:', chunk);
         
+        // ✅ documentId와 chunkId 추출 (다양한 필드명 시도)
+        const documentId = chunk.documentId || chunk.id || '';
+        const chunkId = chunk.chunkId || chunk.chunk_id || '';
+        const title = chunk.documentTitle || chunk.title || '';
+        const page = chunk.page || chunk.metadata?.page;
+        
+        // ❌ 유효성 검사 추가
+        if (!documentId || !chunkId) {
+          console.warn('⚠️ documentId 또는 chunkId가 없음:', { documentId, chunkId, chunk });
+          return; // 이벤트를 발생시키지 않음
+        }
+        
         // 커스텀 이벤트 발생
         window.dispatchEvent(new CustomEvent('referenceClick', {
           detail: {
-            documentId: chunk.documentId,
-            chunkId: chunk.chunkId,
-            title: chunk.documentTitle,
-            page: chunk.page
+            documentId,
+            chunkId,
+            title,
+            page
           }
         }));
         
         console.log('📤 referenceClick 이벤트 발생:', {
-          documentId: chunk.documentId,
-          chunkId: chunk.chunkId
+          documentId,
+          chunkId
         });
       } else {
         console.warn('❌ 유효하지 않은 청크 인덱스:', chunkIndex, '총 개수:', message.chunkReferences.length);

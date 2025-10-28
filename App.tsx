@@ -346,7 +346,7 @@ function App() {
               h-full bg-brand-surface border-r border-brand-secondary overflow-hidden
               transform transition-transform duration-300 ease-in-out
               ${isSidebarOpen ? 'translate-x-0' : '-translate-x-full'}
-              md:translate-x-0 md:block
+              md:translate-x-0 md:block md:flex-shrink-0
               flex flex-col
             `}
             style={{ width: `${sidebarWidth}px` }}
