@@ -75,6 +75,10 @@ const Message: React.FC<MessageProps> = ({ message }) => {
     }
     
     if (show) {
+      // ✅ 기존 툴팁 즉시 닫기
+      setTooltipRef(null);
+      setTooltipContent(null);
+      
       hoverTimeoutRef.current = setTimeout(() => {
         const chunkIndex = referenceNumber - 1;
         if (chunkIndex >= 0 && chunkIndex < message.chunkReferences.length) {
@@ -90,10 +94,9 @@ const Message: React.FC<MessageProps> = ({ message }) => {
         }
       }, 100); // 100ms 디바운스
     } else {
-      hoverTimeoutRef.current = setTimeout(() => {
-        setTooltipRef(null);
-        setTooltipContent(null);
-      }, 200); // 떠나는 것도 200ms 디바운스
+      // ✅ 즉시 닫기 (디바운스 제거)
+      setTooltipRef(null);
+      setTooltipContent(null);
     }
   };
 
@@ -222,7 +225,7 @@ const Message: React.FC<MessageProps> = ({ message }) => {
                                 {/* ✅ 툴팁 */}
                                 {tooltipRef === uniqueKey && tooltipContent && (
                                   <div 
-                                    className="absolute bottom-full mb-2 left-1/2 transform -translate-x-1/2 z-50 w-[500px] max-h-[600px] overflow-y-auto bg-white border border-gray-300 rounded-lg shadow-xl p-4"
+                                    className="absolute top-full mt-2 left-1/2 transform -translate-x-1/2 z-50 w-[500px] max-h-[600px] overflow-y-auto bg-white border border-gray-300 rounded-lg shadow-xl p-4"
                                     onMouseEnter={() => handleReferenceHover(num, true, uniqueKey)}
                                     onMouseLeave={() => handleReferenceHover(num, false, uniqueKey)}
                                   >
@@ -233,7 +236,6 @@ const Message: React.FC<MessageProps> = ({ message }) => {
                                       className="text-sm text-gray-700 leading-relaxed whitespace-pre-wrap"
                                       dangerouslySetInnerHTML={{ __html: tooltipContent.content }}
                                     />
-                                    <div className="absolute bottom-0 left-1/2 transform translate-x-[-50%] translate-y-2 w-0 h-0 border-l-8 border-r-8 border-t-8 border-l-transparent border-r-transparent border-t-gray-300"></div>
                                   </div>
                                 )}
                               </div>
