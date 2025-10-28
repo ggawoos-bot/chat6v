@@ -285,7 +285,7 @@ function App() {
   return (
     <TooltipProvider>
       <div className="min-h-screen bg-brand-bg text-brand-text-primary">
-      <div className="max-w-7xl mx-auto h-screen flex flex-col">
+      <div className="h-screen flex flex-col">
         <header className="bg-brand-surface border-b border-brand-secondary p-4">
           <div className="flex justify-between items-center">
             <div className="flex items-center gap-4">
