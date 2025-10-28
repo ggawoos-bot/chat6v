@@ -39,8 +39,8 @@ function App() {
     const handleResize = (e: MouseEvent) => {
       if (!isResizing) return;
       
-      // 최소 너비: 200px, 최대 너비: 800px
-      const newWidth = Math.min(Math.max(200, e.clientX), 800);
+      // 최소 너비: 250px, 최대 너비: 800px (더 작게 조정 가능하게)
+      const newWidth = Math.min(Math.max(250, e.clientX), 800);
       setSidebarWidth(newWidth);
     };
 
@@ -330,7 +330,7 @@ function App() {
           </div>
         </header>
 
-        <div className="flex-1 flex relative" style={{ overflow: 'visible' }}>
+        <div className="flex-1 flex relative overflow-hidden">
           {/* 모바일 오버레이 */}
           {isSidebarOpen && (
             <div 
@@ -346,10 +346,15 @@ function App() {
               bg-brand-surface border-r border-brand-secondary overflow-hidden
               transform transition-transform duration-300 ease-in-out
               ${isSidebarOpen ? 'translate-x-0' : '-translate-x-full'}
-              md:translate-x-0 md:block md:flex-shrink-0
+              md:translate-x-0 md:block md:flex-shrink md:flex-grow-0
               flex flex-col
             `}
-            style={{ width: `${sidebarWidth}px`, height: '100%' }}
+            style={{ 
+              width: `${sidebarWidth}px`, 
+              height: '100%',
+              minWidth: '250px',
+              maxWidth: '800px'
+            }}
           >
             {/* 사이드바 헤더 (고정) */}
             <div className="p-4 pb-2 border-b border-brand-secondary">
@@ -414,7 +419,7 @@ function App() {
           </div>
 
           {/* ✅ 채팅 화면 (전체 너비) - 사이드바 확장 시에도 보이도록 수정 */}
-          <div className="flex-1 min-w-[400px]" style={{ flexShrink: 1 }}>
+          <div className="flex-1 min-w-[300px] max-w-full" style={{ flexShrink: 1 }}>
             <div className="flex-1 flex flex-col min-w-0 h-full">
               <ChatWindow
                 key={chatKey} // 키를 사용하여 강제 리렌더링 제어
