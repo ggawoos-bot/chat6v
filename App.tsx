@@ -350,16 +350,16 @@ function App() {
               ${isSidebarOpen ? 'translate-x-0' : '-translate-x-full'}
               md:translate-x-0 md:block md:flex-shrink md:flex-grow-0
               flex flex-col
+              h-full
             `}
             style={{ 
               width: `${sidebarWidth}px`, 
-              height: '100%',
               minWidth: '250px',
               maxWidth: '800px'
             }}
           >
             {/* 사이드바 헤더 (고정) */}
-            <div className="p-4 pb-2 border-b border-brand-secondary">
+            <div className="p-4 pb-2 border-b border-brand-secondary flex-shrink-0">
               <div className="flex justify-between items-center">
                 <h2 className="text-lg font-semibold text-brand-text-primary">
                   {selectedDocumentId ? '소스 보기' : '자료 출처'}
