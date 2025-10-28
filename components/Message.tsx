@@ -14,7 +14,7 @@ const Message: React.FC<MessageProps> = ({ message }) => {
   const isUser = message.role === 'user';
   const Icon = isUser ? UserIcon : BotIcon;
   const [isCopied, setIsCopied] = useState(false);
-  const [tooltipRef, setTooltipRef] = useState<number | null>(null);
+  const [tooltipRef, setTooltipRef] = useState<string | null>(null);
   const [tooltipContent, setTooltipContent] = useState<{title: string, content: string} | null>(null);
 
   // 디버깅을 위한 로그
@@ -45,7 +45,7 @@ const Message: React.FC<MessageProps> = ({ message }) => {
   };
   
   // ✅ 툴팁 표시 핸들러
-  const handleReferenceHover = (referenceNumber: number, show: boolean) => {
+  const handleReferenceHover = (referenceNumber: number, show: boolean, uniqueKey: string) => {
     if (!message.chunkReferences || message.chunkReferences.length === 0) {
       return;
     }
@@ -54,10 +54,10 @@ const Message: React.FC<MessageProps> = ({ message }) => {
       const chunkIndex = referenceNumber - 1;
       if (chunkIndex >= 0 && chunkIndex < message.chunkReferences.length) {
         const chunk = message.chunkReferences[chunkIndex];
-        setTooltipRef(referenceNumber);
+        setTooltipRef(uniqueKey);
         setTooltipContent({
           title: chunk.documentTitle || chunk.title || '참조',
-          content: chunk.content.substring(0, 200) + (chunk.content.length > 200 ? '...' : '')
+          content: chunk.content.substring(0, 1500) + (chunk.content.length > 1500 ? '...' : '')
         });
       }
     } else {
@@ -170,36 +170,39 @@ const Message: React.FC<MessageProps> = ({ message }) => {
                       
                       return (
                         <span className="inline-flex items-center gap-1">
-                          {numbers.map((num, i) => (
-                            <div key={i} className="relative inline-block">
-                              <button
-                                type="button"
-                                onClick={(e) => {
-                                  e.preventDefault?.();
-                                  e.stopPropagation?.();
-                                  handleReferenceClick(num);
-                                }}
-                                onMouseEnter={() => handleReferenceHover(num, true)}
-                                onMouseLeave={() => handleReferenceHover(num, false)}
-                                className="inline-flex items-center justify-center w-7 h-7 min-w-[28px] rounded-full bg-blue-500 hover:bg-blue-600 text-white text-xs font-bold transition-colors shadow-sm hover:shadow-md"
-                                title={`참조 ${num} 클릭`}
-                              >
-                                {num}
-                              </button>
-                              {/* ✅ 툴팁 */}
-                              {tooltipRef === num && tooltipContent && (
-                                <div className="absolute bottom-full mb-2 left-1/2 transform -translate-x-1/2 z-50 w-80 max-h-96 overflow-y-auto bg-white border border-gray-300 rounded-lg shadow-xl p-3">
-                                  <div className="text-xs font-semibold text-gray-800 mb-2 border-b pb-2">
-                                    {tooltipContent.title}
+                          {numbers.map((num, i) => {
+                            const uniqueKey = `${message.id}-${num}-${i}`;
+                            return (
+                              <div key={uniqueKey} className="relative inline-block">
+                                <button
+                                  type="button"
+                                  onClick={(e) => {
+                                    e.preventDefault?.();
+                                    e.stopPropagation?.();
+                                    handleReferenceClick(num);
+                                  }}
+                                  onMouseEnter={() => handleReferenceHover(num, true, uniqueKey)}
+                                  onMouseLeave={() => handleReferenceHover(num, false, uniqueKey)}
+                                  className="inline-flex items-center justify-center w-7 h-7 min-w-[28px] rounded-full bg-blue-500 hover:bg-blue-600 text-white text-xs font-bold transition-colors shadow-sm hover:shadow-md"
+                                  title={`참조 ${num} 클릭`}
+                                >
+                                  {num}
+                                </button>
+                                {/* ✅ 툴팁 */}
+                                {tooltipRef === uniqueKey && tooltipContent && (
+                                  <div className="absolute bottom-full mb-2 left-1/2 transform -translate-x-1/2 z-50 w-96 max-h-96 overflow-y-auto bg-white border border-gray-300 rounded-lg shadow-xl p-3">
+                                    <div className="text-xs font-semibold text-gray-800 mb-2 border-b pb-2">
+                                      {tooltipContent.title}
+                                    </div>
+                                    <div className="text-xs text-gray-700 leading-relaxed whitespace-pre-wrap">
+                                      {tooltipContent.content}
+                                    </div>
+                                    <div className="absolute bottom-0 left-1/2 transform translate-x-[-50%] translate-y-2 w-0 h-0 border-l-8 border-r-8 border-t-8 border-l-transparent border-r-transparent border-t-gray-300"></div>
                                   </div>
-                                  <div className="text-xs text-gray-700 leading-relaxed whitespace-pre-wrap">
-                                    {tooltipContent.content}
-                                  </div>
-                                  <div className="absolute bottom-0 left-1/2 transform translate-x-[-50%] translate-y-2 w-0 h-0 border-l-8 border-r-8 border-t-8 border-l-transparent border-r-transparent border-t-gray-300"></div>
-                                </div>
-                              )}
-                            </div>
-                          ))}
+                                )}
+                              </div>
+                            );
+                          })}
                         </span>
                       );
                     }
