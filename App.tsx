@@ -69,7 +69,7 @@ function App() {
       // 소스뷰어가 표시될 때: 현재 너비를 원래 너비로 저장하고 2배로 확장
       const currentWidth = sidebarWidth;
       setOriginalSidebarWidth(currentWidth);
-      const expandedWidth = Math.min(currentWidth * 1.5, 800); // ✅ 최대 800px로 제한
+      const expandedWidth = Math.min(currentWidth * 2, 1200); // 최대 1200px
       setSidebarWidth(expandedWidth);
     } else if (selectedDocumentId === undefined) {
       // 소스뷰어가 닫힐 때: 원래 너비로 복원
@@ -330,7 +330,7 @@ function App() {
           </div>
         </header>
 
-        <div className="flex-1 flex relative">
+        <div className="flex-1 flex overflow-hidden relative">
           {/* 모바일 오버레이 */}
           {isSidebarOpen && (
             <div 
@@ -414,7 +414,7 @@ function App() {
           </div>
 
           {/* ✅ 채팅 화면 (전체 너비) - 사이드바 확장 시에도 보이도록 수정 */}
-          <div className="flex-1 min-w-[400px]" style={{ flex: '1 1 400px', maxWidth: 'calc(100% - 800px)' }}>
+          <div className="flex-1 flex min-w-[400px]" style={{ flex: '1 1 400px' }}>
             <div className="flex-1 flex flex-col min-w-0">
               <ChatWindow
                 key={chatKey} // 키를 사용하여 강제 리렌더링 제어
