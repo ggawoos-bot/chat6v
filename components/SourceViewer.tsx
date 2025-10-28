@@ -102,9 +102,9 @@ export const SourceViewer: React.FC<SourceViewerProps> = ({
   }
 
   return (
-    <div className="h-full overflow-y-auto bg-white sidebar-scroll">
+    <div className="bg-white">
       {/* 헤더 */}
-      <div className="sticky top-0 bg-white border-b border-gray-200 p-4 z-10">
+      <div className="sticky top-0 bg-white border-b border-gray-200 px-4 py-3 z-10">
         <h2 className="text-lg font-semibold text-gray-800 truncate">{documentTitle}</h2>
         <p className="text-xs text-gray-500 mt-1">
           총 {chunks.length}개 청크

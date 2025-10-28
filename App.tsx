@@ -351,41 +351,41 @@ function App() {
             `}
             style={{ width: `${sidebarWidth}px` }}
           >
-            {/* 사이드바 내용 */}
-            <div className="flex-1 overflow-y-auto p-4 sidebar-scroll">
-              <div className="mb-4">
-                <div className="flex justify-between items-center mb-2">
-                  <h2 className="text-lg font-semibold text-brand-text-primary">
-                    {selectedDocumentId ? '소스 보기' : '자료 출처'}
-                  </h2>
-                  <div className="flex gap-2">
-                    {selectedDocumentId && (
-                      <button
-                        onClick={() => {
-                          setSelectedDocumentId(undefined);
-                          setHighlightedChunkId(undefined);
-                        }}
-                        className="p-1 rounded-lg hover:bg-brand-secondary"
-                        title="돌아가기"
-                      >
-                        <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M10 19l-7-7m0 0l7-7m-7 7h18" />
-                        </svg>
-                      </button>
-                    )}
+            {/* 사이드바 헤더 (고정) */}
+            <div className="p-4 pb-2 border-b border-brand-secondary">
+              <div className="flex justify-between items-center">
+                <h2 className="text-lg font-semibold text-brand-text-primary">
+                  {selectedDocumentId ? '소스 보기' : '자료 출처'}
+                </h2>
+                <div className="flex gap-2">
+                  {selectedDocumentId && (
                     <button
-                      onClick={() => setIsSidebarOpen(false)}
-                      className="md:hidden p-1 rounded-lg hover:bg-brand-secondary"
+                      onClick={() => {
+                        setSelectedDocumentId(undefined);
+                        setHighlightedChunkId(undefined);
+                      }}
+                      className="p-1 rounded-lg hover:bg-brand-secondary"
+                      title="돌아가기"
                     >
                       <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
+                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M10 19l-7-7m0 0l7-7m-7 7h18" />
                       </svg>
                     </button>
-                  </div>
+                  )}
+                  <button
+                    onClick={() => setIsSidebarOpen(false)}
+                    className="md:hidden p-1 rounded-lg hover:bg-brand-secondary"
+                  >
+                    <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
+                    </svg>
+                  </button>
                 </div>
               </div>
-              
-              {/* 조건부 렌더링: 소스 뷰어 또는 소스 목록 */}
+            </div>
+
+            {/* 사이드바 내용 (스크롤 가능) */}
+            <div className="flex-1 overflow-y-auto sidebar-scroll">
               {selectedDocumentId ? (
                 <SourceViewer
                   selectedDocumentId={selectedDocumentId}
@@ -393,7 +393,7 @@ function App() {
                   onChunkSelect={(chunkId) => setHighlightedChunkId(chunkId)}
                 />
               ) : (
-                <div className="space-y-2">
+                <div className="p-4 space-y-2">
                   <h3 className="text-md font-medium text-brand-text-primary">현재 자료</h3>
                   <SourceInfo sources={sources} onSourceClick={handleSourceClick} />
                 </div>
