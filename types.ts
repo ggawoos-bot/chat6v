@@ -40,6 +40,7 @@ export interface SourceInfo {
 
 export interface Chunk {
   id: string;
+  documentId?: string;  // ✅ 추가: Firestore document ID
   content: string;
   metadata: {
     source: string;

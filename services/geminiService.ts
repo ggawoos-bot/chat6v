@@ -1777,46 +1777,42 @@ Here is the source material:
           
           // ✅ 사용된 청크 참조 정보 저장 (실제 Firestore documentId로 변환)
           const allDocuments = await this.firestoreService.getAllDocuments();
-          this.lastChunkReferences = advancedSearchResult.chunks.map((chunk, index) => {
-            // filename에서 documentId 찾기
-            const filename = chunk.metadata?.source || chunk.location?.document || '';
-            console.log('🔍 chunk 매칭:', { filename, chunkId: chunk.id });
-            
-            // 다양한 방법으로 document 매칭 시도
-            let matchingDoc = allDocuments.find(doc => 
-              doc.filename === filename || 
-              doc.filename === filename + '.pdf'
-            );
-            
-            // 매칭 실패 시 부분 매칭 시도
-            if (!matchingDoc && filename) {
-              const filenameWithoutExt = filename.replace('.pdf', '');
-              matchingDoc = allDocuments.find(doc => 
-                doc.filename.includes(filenameWithoutExt) ||
-                doc.title.includes(filenameWithoutExt) ||
-                filenameWithoutExt.includes(doc.filename.replace('.pdf', ''))
-              );
-            }
-            
-            // 최종 매칭 결과 로그
-            if (!matchingDoc) {
-              console.warn('⚠️ 문서를 찾을 수 없음:', filename, '전체 문서:', allDocuments.map(d => ({ id: d.id, filename: d.filename, title: d.title })));
-            }
-            
-            return {
-              chunkId: chunk.id,
-              documentId: matchingDoc?.id || '',
-              documentTitle: matchingDoc?.title || chunk.metadata?.title || '',
-              page: chunk.metadata?.page,
-              section: chunk.metadata?.section,
-              content: chunk.content,
-              metadata: {
-                startPos: chunk.metadata?.startPosition || 0,
-                endPos: chunk.metadata?.endPosition || 0,
-                position: chunk.metadata?.position || 0
+          this.lastChunkReferences = advancedSearchResult.chunks
+            .map((chunk, index) => {
+              // ✅ documentId를 직접 사용 (이미 Chunk 인터페이스에 포함됨)
+              const documentId = chunk.documentId;
+              
+              if (!documentId) {
+                console.warn('⚠️ chunk에 documentId가 없음:', { 
+                  chunkId: chunk.id, 
+                  title: chunk.metadata?.title,
+                  source: chunk.metadata?.source 
+                });
+                return null;
               }
-            };
-          });
+              
+              // documentId로 문서 조회
+              const matchingDoc = allDocuments.find(doc => doc.id === documentId);
+              
+              if (!matchingDoc) {
+                console.warn('⚠️ 문서를 찾을 수 없음:', documentId);
+              }
+              
+              return {
+                chunkId: chunk.id,
+                documentId,
+                documentTitle: matchingDoc?.title || chunk.metadata?.title || '',
+                page: chunk.metadata?.page,
+                section: chunk.metadata?.section,
+                content: chunk.content,
+                metadata: {
+                  startPos: chunk.metadata?.startPosition || 0,
+                  endPos: chunk.metadata?.endPosition || 0,
+                  position: chunk.metadata?.position || 0
+                }
+              };
+            })
+            .filter(ref => ref !== null);
 
           // 2.5. 청크에서 출처 정보 생성 (문서 유형별 처리)
           const sourceInfo = this.generateSourceInfoFromChunks(advancedSearchResult.chunks);

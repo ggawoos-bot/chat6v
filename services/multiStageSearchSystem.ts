@@ -385,9 +385,10 @@ export class MultiStageSearchSystem {
       
       return {
         id: pdfChunk.id || '',
+        documentId: pdfChunk.documentId,  // ✅ 추가
         content: pdfChunk.content,
         metadata: {
-          source: pdfChunk.metadata.source || doc?.filename || 'Firestore',
+          source: doc?.filename || 'Firestore',
           title: pdfChunk.metadata.title || doc?.title || 'Unknown',
           page: pdfChunk.metadata.page || 0,
           section: pdfChunk.metadata.section || 'general',
