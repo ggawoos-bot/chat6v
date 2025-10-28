@@ -25,6 +25,11 @@ function App() {
   const [selectedDocumentId, setSelectedDocumentId] = useState<string>();
   const [highlightedChunkId, setHighlightedChunkId] = useState<string>();
   
+  // ✅ PDF 뷰어 상태 관리
+  const [pdfViewerMode, setPdfViewerMode] = useState<'text' | 'pdf'>('text');
+  const [pdfCurrentPage, setPdfCurrentPage] = useState<number>(1);
+  const [pdfFilename, setPdfFilename] = useState<string>('');
+  
   // ✅ 사이드바 리사이징 관련 상태
   const [sidebarWidth, setSidebarWidth] = useState<number>(450); // 기본값: 450px (약 25-30%)
   const [isResizing, setIsResizing] = useState(false);
@@ -184,13 +189,28 @@ function App() {
   useEffect(() => {
     const handleReferenceClick = (event: CustomEvent) => {
       console.log('📥 App.tsx에서 referenceClick 이벤트 수신:', event.detail);
-      const { documentId, chunkId } = event.detail;
-      console.log('📝 설정할 값:', { documentId, chunkId });
+      const { documentId, chunkId, page, filename } = event.detail;
+      console.log('📝 설정할 값:', { documentId, chunkId, page, filename });
       
       // ✅ chatKey 변경 방지 (채팅창 초기화 방지)
       if (documentId && chunkId) {
         setSelectedDocumentId(documentId);
         setHighlightedChunkId(chunkId);
+        
+        // ✅ PDF 페이지 정보가 있으면 PDF 뷰어로 전환 및 페이지 이동
+        if (page && page > 0) {
+          setPdfViewerMode('pdf');
+          setPdfCurrentPage(page);
+          if (filename) {
+            setPdfFilename(filename);
+          }
+          console.log(`📄 PDF 뷰어로 전환: 페이지 ${page}, 파일: ${filename}`);
+        } else {
+          // 페이지 정보가 없으면 텍스트 뷰로 유지
+          setPdfViewerMode('text');
+          console.log('📄 텍스트 뷰로 유지 (페이지 정보 없음)');
+        }
+        
         console.log('✅ SourceViewer 상태 업데이트 완료');
       } else {
         console.warn('⚠️ documentId 또는 chunkId가 없음');
@@ -418,6 +438,11 @@ function App() {
                       setHighlightedChunkId(chunkId);
                     }
                   }}
+                  pdfViewerMode={pdfViewerMode}
+                  pdfCurrentPage={pdfCurrentPage}
+                  pdfFilename={pdfFilename}
+                  onPdfPageChange={(page) => setPdfCurrentPage(page)}
+                  onViewModeChange={(mode) => setPdfViewerMode(mode)}
                 />
               ) : (
                 <div className="p-4 space-y-2 h-full overflow-y-auto sidebar-scroll">

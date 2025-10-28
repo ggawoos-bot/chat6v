@@ -128,19 +128,31 @@ const Message: React.FC<MessageProps> = ({ message }) => {
         const chunkId = chunk.chunkId || chunk.chunk_id || '';
         const title = chunk.documentTitle || chunk.title || '';
         const page = chunk.page || chunk.metadata?.page;
+        const filename = chunk.filename || chunk.documentFilename || chunk.metadata?.source || '';
+        
+        console.log('📝 참조 클릭 정보:', {
+          referenceNumber,
+          documentId,
+          chunkId,
+          title,
+          page,
+          filename
+        });
         
         // ❌ 유효성 검사 추가
         if (!documentId || !chunkId) {
+          console.warn('⚠️ documentId 또는 chunkId가 없음:', { documentId, chunkId });
           return; // 이벤트를 발생시키지 않음
         }
         
-        // 커스텀 이벤트 발생
+        // 커스텀 이벤트 발생 (PDF 파일명 추가)
         window.dispatchEvent(new CustomEvent('referenceClick', {
           detail: {
             documentId,
             chunkId,
             title,
-            page
+            page,
+            filename // ✅ PDF 파일명 추가
           }
         }));
       }

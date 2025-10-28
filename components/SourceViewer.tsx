@@ -1,16 +1,27 @@
 import React, { useState, useEffect, useRef } from 'react';
-import { FirestoreService, PDFChunk } from '../services/firestoreService';
+import { FirestoreService, PDFChunk, PDFDocument } from '../services/firestoreService';
+import PdfViewer from './PdfViewer';
 
 interface SourceViewerProps {
   selectedDocumentId?: string;
   highlightedChunkId?: string;
   onChunkSelect?: (chunkId: string) => void;
+  pdfViewerMode?: 'text' | 'pdf';
+  pdfCurrentPage?: number;
+  pdfFilename?: string;
+  onPdfPageChange?: (page: number) => void;
+  onViewModeChange?: (mode: 'text' | 'pdf') => void;
 }
 
 export const SourceViewer: React.FC<SourceViewerProps> = ({
   selectedDocumentId,
   highlightedChunkId,
-  onChunkSelect
+  onChunkSelect,
+  pdfViewerMode = 'text',
+  pdfCurrentPage = 1,
+  pdfFilename = '',
+  onPdfPageChange,
+  onViewModeChange
 }) => {
   const [chunks, setChunks] = useState<PDFChunk[]>([]);
   const [isLoading, setIsLoading] = useState(false);
@@ -18,6 +29,7 @@ export const SourceViewer: React.FC<SourceViewerProps> = ({
   const [currentPage, setCurrentPage] = useState<number>(1);
   const [maxPdfPage, setMaxPdfPage] = useState<number>(0);
   const [documentTotalPages, setDocumentTotalPages] = useState<number>(0); // ✅ 추가: 문서의 실제 총 페이지 수
+  const [document, setDocument] = useState<PDFDocument | null>(null); // ✅ 추가: 문서 정보
   const firestoreService = FirestoreService.getInstance();
   const highlightTimeoutRef = useRef<NodeJS.Timeout>();
   
@@ -155,6 +167,7 @@ export const SourceViewer: React.FC<SourceViewerProps> = ({
       // 문서 정보 가져오기
       const document = await firestoreService.getDocumentById(documentId);
       if (document) {
+        setDocument(document); // ✅ 문서 정보 저장
         setDocumentTitle(document.title);
         setDocumentTotalPages(document.totalPages || 0); // ✅ 문서의 실제 총 페이지 수 설정
         console.log(`📄 문서 정보: ${document.title}, 총 페이지: ${document.totalPages}`);
@@ -268,12 +281,40 @@ export const SourceViewer: React.FC<SourceViewerProps> = ({
       <div className="bg-brand-surface border-b border-brand-secondary px-4 py-3 flex-shrink-0">
         <div className="flex items-center justify-between mb-2">
           <h2 className="text-lg font-semibold text-brand-text-primary truncate">{documentTitle}</h2>
-          {/* 컨텍스트 모드 표시 */}
-          {highlightedChunkId && getPaginatedChunks().length > 0 && (
-            <span className="px-2 py-1 bg-yellow-100 text-yellow-800 rounded text-xs whitespace-nowrap ml-2">
-              컨텍스트 모드 • {getPaginatedChunks().length}개 항목 표시 중
-            </span>
-          )}
+          <div className="flex items-center gap-2">
+            {/* 컨텍스트 모드 표시 */}
+            {highlightedChunkId && getPaginatedChunks().length > 0 && (
+              <span className="px-2 py-1 bg-yellow-100 text-yellow-800 rounded text-xs whitespace-nowrap">
+                컨텍스트 모드 • {getPaginatedChunks().length}개 항목 표시 중
+              </span>
+            )}
+            
+            {/* 뷰 모드 전환 버튼 */}
+            <div className="flex items-center gap-1">
+              <button
+                onClick={() => onViewModeChange?.('text')}
+                className={`px-2 py-1 rounded text-xs transition-colors ${
+                  pdfViewerMode === 'text' 
+                    ? 'bg-blue-500 text-white' 
+                    : 'bg-gray-200 text-gray-700 hover:bg-gray-300'
+                }`}
+                title="텍스트 보기"
+              >
+                텍스트
+              </button>
+              <button
+                onClick={() => onViewModeChange?.('pdf')}
+                className={`px-2 py-1 rounded text-xs transition-colors ${
+                  pdfViewerMode === 'pdf' 
+                    ? 'bg-blue-500 text-white' 
+                    : 'bg-gray-200 text-gray-700 hover:bg-gray-300'
+                }`}
+                title="PDF 보기"
+              >
+                PDF
+              </button>
+            </div>
+          </div>
         </div>
         <div className="flex items-center justify-between">
           <p className="text-xs text-brand-text-secondary">
@@ -328,99 +369,120 @@ export const SourceViewer: React.FC<SourceViewerProps> = ({
         </div>
       </div>
 
-      {/* 청크 목록 - 스크롤 가능 */}
-      <div className="flex-1 overflow-y-auto p-4">
-        <div className="space-y-4">
-          {getPaginatedChunks().map((chunk, index) => {
-          const isHighlighted = highlightedChunkId === chunk.id;
-          
-          return (
-            <div
-              key={chunk.id}
-              id={`chunk-${chunk.id}`}
-              className={`p-4 rounded-lg border-2 transition-all duration-200 cursor-pointer ${
-                isHighlighted
-                  ? 'border-yellow-600 bg-yellow-200 text-gray-900 font-medium highlight-animation shadow-xl'
-                  : 'border-brand-secondary bg-brand-surface hover:border-brand-primary hover:shadow-sm'
-              }`}
-              onClick={() => handleChunkClick(chunk.id)}
-            >
-              {/* 메타데이터 */}
-              <div className="flex items-center gap-2 text-xs text-brand-text-secondary mb-2">
-                {chunk.metadata.page && (
-                  <span className="inline-flex items-center gap-1">
-                    <svg className="w-3 h-3" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" />
-                    </svg>
-                    페이지 {chunk.metadata.page}
-                  </span>
-                )}
-                {chunk.metadata.section && (
-                  <span className="inline-flex items-center gap-1">
-                    <svg className="w-3 h-3" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5H7a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2V7a2 2 0 00-2-2h-2M9 5a2 2 0 002 2h2a2 2 0 002-2M9 5a2 2 0 012-2h2a2 2 0 012 2" />
-                    </svg>
-                    {chunk.metadata.section}
-                  </span>
-                )}
-                {chunk.metadata.position && (
-                  <span className="ml-auto text-brand-text-secondary opacity-70">#{chunk.metadata.position}</span>
-                )}
-              </div>
+      {/* 컨텐츠 영역 - PDF 뷰어 또는 텍스트 뷰 */}
+      <div className="flex-1 overflow-hidden">
+        {pdfViewerMode === 'pdf' ? (
+          // PDF 뷰어
+          <PdfViewer
+            pdfUrl={`./pdf/${pdfFilename || document?.filename || ''}`}
+            currentPage={pdfCurrentPage}
+            onPageChange={(page) => {
+              setPdfCurrentPage(page);
+              onPdfPageChange?.(page);
+            }}
+            onDocumentLoad={(totalPages) => {
+              console.log(`📄 PDF 로드 완료: ${totalPages}페이지`);
+            }}
+            onError={(error) => {
+              console.error('PDF 뷰어 오류:', error);
+            }}
+          />
+        ) : (
+          // 텍스트 뷰 (기존 청크 목록)
+          <div className="flex-1 overflow-y-auto p-4">
+            <div className="space-y-4">
+              {getPaginatedChunks().map((chunk, index) => {
+              const isHighlighted = highlightedChunkId === chunk.id;
+              
+              return (
+                <div
+                  key={chunk.id}
+                  id={`chunk-${chunk.id}`}
+                  className={`p-4 rounded-lg border-2 transition-all duration-200 cursor-pointer ${
+                    isHighlighted
+                      ? 'border-yellow-600 bg-yellow-200 text-gray-900 font-medium highlight-animation shadow-xl'
+                      : 'border-brand-secondary bg-brand-surface hover:border-brand-primary hover:shadow-sm'
+                  }`}
+                  onClick={() => handleChunkClick(chunk.id)}
+                >
+                  {/* 메타데이터 */}
+                  <div className="flex items-center gap-2 text-xs text-brand-text-secondary mb-2">
+                    {chunk.metadata.page && (
+                      <span className="inline-flex items-center gap-1">
+                        <svg className="w-3 h-3" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" />
+                        </svg>
+                        페이지 {chunk.metadata.page}
+                      </span>
+                    )}
+                    {chunk.metadata.section && (
+                      <span className="inline-flex items-center gap-1">
+                        <svg className="w-3 h-3" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5H7a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2V7a2 2 0 00-2-2h-2M9 5a2 2 0 002 2h2a2 2 0 002-2M9 5a2 2 0 012-2h2a2 2 0 012 2" />
+                        </svg>
+                        {chunk.metadata.section}
+                      </span>
+                    )}
+                    {chunk.metadata.position && (
+                      <span className="ml-auto text-brand-text-secondary opacity-70">#{chunk.metadata.position}</span>
+                    )}
+                  </div>
 
-              {/* 청크 내용 */}
-              <div className="text-sm text-brand-text-primary leading-relaxed whitespace-pre-wrap">
-                {chunk.content}
-              </div>
+                  {/* 청크 내용 */}
+                  <div className="text-sm text-brand-text-primary leading-relaxed whitespace-pre-wrap">
+                    {chunk.content}
+                  </div>
 
-              {/* 키워드 */}
-              {chunk.keywords && chunk.keywords.length > 0 && (
-                <div className="flex flex-wrap gap-1 mt-2">
-                  {chunk.keywords.slice(0, 5).map((keyword, idx) => (
-                    <span
-                      key={idx}
-                      className="px-2 py-0.5 bg-brand-secondary text-brand-text-secondary text-xs rounded"
-                    >
-                      {keyword}
-                    </span>
-                  ))}
+                  {/* 키워드 */}
+                  {chunk.keywords && chunk.keywords.length > 0 && (
+                    <div className="flex flex-wrap gap-1 mt-2">
+                      {chunk.keywords.slice(0, 5).map((keyword, idx) => (
+                        <span
+                          key={idx}
+                          className="px-2 py-0.5 bg-brand-secondary text-brand-text-secondary text-xs rounded"
+                        >
+                          {keyword}
+                        </span>
+                      ))}
+                    </div>
+                  )}
                 </div>
-              )}
-            </div>
-          );
-        })}
-        
-        {/* 주변 페이지 미리보기 */}
-        {getContextualPages() && getContextualPages() && (
-          <div className="border-t border-brand-secondary mt-6 pt-4">
-            <p className="text-xs text-brand-text-secondary mb-2 px-2">
-              주변 페이지 힌트
-            </p>
-            <div className="space-y-2 overflow-y-auto max-h-40">
-              {getContextualPages()?.previous && getContextualPages()!.previous.length > 0 && (
-                <div className="bg-brand-secondary rounded p-2">
-                  <div className="text-xs text-brand-text-secondary font-semibold mb-1">
-                    ← 이전 페이지 ({getContextualPages()!.previous[0].metadata.page}페이지)
-                  </div>
-                  <div className="text-xs text-brand-text-primary line-clamp-2">
-                    {getContextualPages()!.previous[0].content.substring(0, 150)}...
-                  </div>
+              );
+            })}
+            
+            {/* 주변 페이지 미리보기 */}
+            {getContextualPages() && getContextualPages() && (
+              <div className="border-t border-brand-secondary mt-6 pt-4">
+                <p className="text-xs text-brand-text-secondary mb-2 px-2">
+                  주변 페이지 힌트
+                </p>
+                <div className="space-y-2 overflow-y-auto max-h-40">
+                  {getContextualPages()?.previous && getContextualPages()!.previous.length > 0 && (
+                    <div className="bg-brand-secondary rounded p-2">
+                      <div className="text-xs text-brand-text-secondary font-semibold mb-1">
+                        ← 이전 페이지 ({getContextualPages()!.previous[0].metadata.page}페이지)
+                      </div>
+                      <div className="text-xs text-brand-text-primary line-clamp-2">
+                        {getContextualPages()!.previous[0].content.substring(0, 150)}...
+                      </div>
+                    </div>
+                  )}
+                  {getContextualPages()?.next && getContextualPages()!.next.length > 0 && (
+                    <div className="bg-brand-secondary rounded p-2">
+                      <div className="text-xs text-brand-text-secondary font-semibold mb-1">
+                        다음 페이지 → ({getContextualPages()!.next[0].metadata.page}페이지)
+                      </div>
+                      <div className="text-xs text-brand-text-primary line-clamp-2">
+                        {getContextualPages()!.next[0].content.substring(0, 150)}...
+                      </div>
+                    </div>
+                  )}
                 </div>
-              )}
-              {getContextualPages()?.next && getContextualPages()!.next.length > 0 && (
-                <div className="bg-brand-secondary rounded p-2">
-                  <div className="text-xs text-brand-text-secondary font-semibold mb-1">
-                    다음 페이지 → ({getContextualPages()!.next[0].metadata.page}페이지)
-                  </div>
-                  <div className="text-xs text-brand-text-primary line-clamp-2">
-                    {getContextualPages()!.next[0].content.substring(0, 150)}...
-                  </div>
-                </div>
-              )}
+              </div>
+            )}
             </div>
           </div>
         )}
-        </div>
       </div>
     </div>
   );
