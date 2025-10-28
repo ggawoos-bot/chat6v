@@ -282,19 +282,22 @@ body {
 .sidebar-scroll {
   scrollbar-width: thin;
   scrollbar-color: #9ca3af #f3f4f6;
+  overflow-y: scroll !important;  /* ✅ 강제로 스크롤 표시 */
 }
 
 .sidebar-scroll::-webkit-scrollbar {
-  width: 10px;
+  width: 12px;  /* ✅ 너비를 조금 늘림 */
 }
 
 .sidebar-scroll::-webkit-scrollbar-track {
   background: #f3f4f6;
+  border-radius: 6px;  /* ✅ 둥근 모서리 */
 }
 
 .sidebar-scroll::-webkit-scrollbar-thumb {
   background-color: #9ca3af;
-  border-radius: 5px;
+  border-radius: 6px;  /* ✅ 둥근 모서리 */
+  border: 2px solid #f3f4f6;  /* ✅ 패딩 추가 */
 }
 
 .sidebar-scroll::-webkit-scrollbar-thumb:hover {

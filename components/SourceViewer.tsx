@@ -61,6 +61,9 @@ export const SourceViewer: React.FC<SourceViewerProps> = ({
           clearTimeout(highlightTimeoutRef.current);
         }
         
+        // ✅ highlight-animation 클래스 추가
+        element.classList.add('highlight-animation');
+        
         element.scrollIntoView({ behavior: 'smooth', block: 'center' });
         
         // 하이라이트 효과 (2초 후 제거)
@@ -102,7 +105,7 @@ export const SourceViewer: React.FC<SourceViewerProps> = ({
   }
 
   return (
-    <div className="bg-white">
+    <div className="bg-white h-full">
       {/* 헤더 */}
       <div className="sticky top-0 bg-white border-b border-gray-200 px-4 py-3 z-10">
         <h2 className="text-lg font-semibold text-gray-800 truncate">{documentTitle}</h2>
