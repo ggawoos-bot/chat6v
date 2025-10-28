@@ -413,8 +413,8 @@ function App() {
             </div>
           </div>
 
-          {/* ✅ 채팅 화면 (전체 너비) */}
-          <div className="flex-1 flex">
+          {/* ✅ 채팅 화면 (전체 너비) - 사이드바 확장 시에도 보이도록 수정 */}
+          <div className="flex-1 flex min-w-[400px]" style={{ flex: '1 1 400px' }}>
             <div className="flex-1 flex flex-col min-w-0">
               <ChatWindow
                 key={chatKey} // 키를 사용하여 강제 리렌더링 제어

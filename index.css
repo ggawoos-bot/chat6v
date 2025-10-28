@@ -260,21 +260,21 @@ body {
   }
 }
 
-/* ✅ 소스 뷰어 하이라이트 애니메이션 */
+/* ✅ 소스 뷰어 하이라이트 애니메이션 - 노란색 */
 .highlight-animation {
   animation: highlightPulse 2s ease-in-out;
 }
 
 @keyframes highlightPulse {
   0%, 100% {
-    background-color: transparent;
-    border-color: #e5e7eb;
-    box-shadow: 0 1px 3px rgba(0, 0, 0, 0.1);
+    background-color: rgba(253, 224, 71, 0.2);
+    border-color: #fbbf24;
+    box-shadow: 0 0 0 3px rgba(253, 224, 71, 0.3);
   }
   50% {
-    background-color: rgba(59, 130, 246, 0.1);
-    border-color: #3b82f6;
-    box-shadow: 0 0 0 3px rgba(59, 130, 246, 0.2);
+    background-color: rgba(253, 224, 71, 0.3);
+    border-color: #f59e0b;
+    box-shadow: 0 0 0 4px rgba(253, 224, 71, 0.4);
   }
 }
 
