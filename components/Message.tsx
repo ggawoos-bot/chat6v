@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useCallback, useRef } from 'react';
 import ReactMarkdown from 'react-markdown';
 import remarkGfm from 'remark-gfm';
 import { Message as MessageType } from '../types';
@@ -36,13 +36,6 @@ const Message: React.FC<MessageProps> = ({ message }) => {
     return highlightedText;
   };
 
-  // 디버깅을 위한 로그
-  if (!isUser) {
-    console.log('AI Message content:', message.content);
-    console.log('Contains table markdown:', message.content.includes('|'));
-    console.log('Contains table headers:', message.content.includes('---'));
-  }
-
   // 클립보드 복사 함수
   const handleCopyToClipboard = async () => {
     try {
@@ -63,8 +56,8 @@ const Message: React.FC<MessageProps> = ({ message }) => {
     }
   };
   
-  // ✅ 툴팁 표시 핸들러 (디바운스 추가)
-  const handleReferenceHover = (referenceNumber: number, show: boolean, uniqueKey: string) => {
+  // ✅ 툴팁 표시 핸들러 (디바운스 추가 + 중복 방지)
+  const handleReferenceHover = useCallback((referenceNumber: number, show: boolean, uniqueKey: string) => {
     if (!message.chunkReferences || message.chunkReferences.length === 0) {
       return;
     }
@@ -75,9 +68,10 @@ const Message: React.FC<MessageProps> = ({ message }) => {
     }
     
     if (show) {
-      // ✅ 기존 툴팁 즉시 닫기
-      setTooltipRef(null);
-      setTooltipContent(null);
+      // ✅ 현재 열려있는 툴팁과 같으면 업데이트하지 않음
+      if (tooltipRef === uniqueKey && tooltipContent) {
+        return;
+      }
       
       hoverTimeoutRef.current = setTimeout(() => {
         const chunkIndex = referenceNumber - 1;
@@ -92,27 +86,24 @@ const Message: React.FC<MessageProps> = ({ message }) => {
             content: highlightedContent
           });
         }
-      }, 100); // 100ms 디바운스
+      }, 150); // 150ms 디바운스
     } else {
-      // ✅ 즉시 닫기 (디바운스 제거)
-      setTooltipRef(null);
-      setTooltipContent(null);
+      // ✅ 현재 닫으려는 툴팁과 같은 경우만 닫기
+      if (tooltipRef === uniqueKey) {
+        setTooltipRef(null);
+        setTooltipContent(null);
+      }
     }
-  };
+  }, [message.chunkReferences, tooltipRef, tooltipContent]);
 
   // 참조 번호 클릭 핸들러
   const handleReferenceClick = (referenceNumber: number) => {
-    console.log('🔘 참조 번호 클릭됨:', referenceNumber);
-    console.log('📋 chunkReferences:', message.chunkReferences);
-    
     if (message.chunkReferences && message.chunkReferences.length > 0) {
       // 참조 번호에 해당하는 청크 찾기 (1-based index)
       const chunkIndex = referenceNumber - 1;
-      console.log('🔍 청크 인덱스:', chunkIndex, '총 개수:', message.chunkReferences.length);
       
       if (chunkIndex >= 0 && chunkIndex < message.chunkReferences.length) {
         const chunk = message.chunkReferences[chunkIndex];
-        console.log('✅ 찾은 청크:', chunk);
         
         // ✅ documentId와 chunkId 추출 (다양한 필드명 시도)
         const documentId = chunk.documentId || chunk.id || '';
@@ -122,7 +113,6 @@ const Message: React.FC<MessageProps> = ({ message }) => {
         
         // ❌ 유효성 검사 추가
         if (!documentId || !chunkId) {
-          console.warn('⚠️ documentId 또는 chunkId가 없음:', { documentId, chunkId, chunk });
           return; // 이벤트를 발생시키지 않음
         }
         
@@ -135,16 +125,7 @@ const Message: React.FC<MessageProps> = ({ message }) => {
             page
           }
         }));
-        
-        console.log('📤 referenceClick 이벤트 발생:', {
-          documentId,
-          chunkId
-        });
-      } else {
-        console.warn('❌ 유효하지 않은 청크 인덱스:', chunkIndex, '총 개수:', message.chunkReferences.length);
       }
-    } else {
-      console.warn('❌ chunkReferences가 없거나 비어있음');
     }
   };
 
@@ -191,15 +172,12 @@ const Message: React.FC<MessageProps> = ({ message }) => {
                   // ✅ 참조 번호를 클릭 가능한 버튼으로 변환
                   strong: ({ children, ...props }: any) => {
                     const text = String(children).trim();
-                    console.log('🎯 strong 태그 콘텐츠:', text);
                     
                     // **숫자** 패턴인지 확인 (ReactMarkdown이 파싱하면 **는 제거됨)
                     // 숫자와 공백만 포함하는지 체크
                     const isNumberSequence = /^(\d+\s*)+\d*$/.test(text);
-                    console.log('🔍 숫자 시퀀스인가?', isNumberSequence, 'chunkReferences 있나?', !!message.chunkReferences);
                     
                     if (isNumberSequence && message.chunkReferences) {
-                      console.log('✅ 버튼으로 변환 중...');
                       const numbers = text.split(/\s+/).map(n => parseInt(n.trim()));
                       
                       return (
