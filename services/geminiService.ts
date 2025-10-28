@@ -1786,17 +1786,12 @@ Here is the source material:
             }))
           });
 
-          // 3. 동적 프롬프트 생성
-          const contextText = advancedSearchResult.chunks
+          // 3. 동적 프롬프트 생성 준비
+          const initialContextText = advancedSearchResult.chunks
             .map((chunk, index) => {
               return `[문서 ${index + 1}: ${chunk.metadata.title} - ${chunk.location.section || '일반'}]\n${chunk.content}`;
             })
             .join('\n\n---\n\n');
-
-          const dynamicPrompt = this.advancedSearchService.generateDynamicPrompt(
-            questionAnalysis,
-            contextText
-          );
 
           // 컨텍스트 길이 검증 및 제한
           const MAX_CONTEXT_LENGTH = 50000; // 50,000자로 확장 (답변 품질 향상)
@@ -1824,17 +1819,17 @@ Here is the source material:
             return Math.max(3, Math.min(optimalCount, chunks.length));
           };
           
-          let finalContextText = contextText;
+          let finalContextText = initialContextText;
           let finalChunks = advancedSearchResult.chunks;  // ✅ 최종 청크 추적
           
-          if (contextText.length > MAX_CONTEXT_LENGTH) {
-            console.warn(`⚠️ 컨텍스트 길이 초과: ${contextText.length}자 (제한: ${MAX_CONTEXT_LENGTH}자)`);
+          if (initialContextText.length > MAX_CONTEXT_LENGTH) {
+            console.warn(`⚠️ 컨텍스트 길이 초과: ${initialContextText.length}자 (제한: ${MAX_CONTEXT_LENGTH}자)`);
             
             // 동적 최적 청크 개수 계산
             const optimalCount = calculateOptimalChunkCount(
               advancedSearchResult.chunks,
               MAX_CONTEXT_LENGTH,
-              contextText.length
+              initialContextText.length
             );
             
             console.log(`📊 동적 청크 개수 결정: ${optimalCount}개 (전체: ${advancedSearchResult.chunks.length}개)`);
@@ -1898,9 +1893,15 @@ Here is the source material:
             })
             .filter(ref => ref !== null);
 
+          // ✅ finalContextText로 dynamicPrompt 생성
+          const dynamicPrompt = this.advancedSearchService.generateDynamicPrompt(
+            questionAnalysis,
+            finalContextText
+          );
+
           log.info(`컨텍스트 기반 세션 생성`, { 
             contextLength: finalContextText.length,
-            selectedChunks: advancedSearchResult.chunks.length
+            selectedChunks: finalChunks.length
           });
 
           // 4. 동적 프롬프트를 사용한 세션 생성
