@@ -1,6 +1,6 @@
 import React, { useState, useEffect, useRef } from 'react';
 import { FirestoreService, PDFChunk, PDFDocument } from '../services/firestoreService';
-import PdfViewer from './PdfViewer';
+import EmbedPdfViewer from './EmbedPdfViewer';
 
 interface SourceViewerProps {
   selectedDocumentId?: string;
@@ -372,8 +372,8 @@ export const SourceViewer: React.FC<SourceViewerProps> = ({
       {/* 컨텐츠 영역 - PDF 뷰어 또는 텍스트 뷰 */}
       <div className="flex-1 overflow-hidden">
         {pdfViewerMode === 'pdf' ? (
-          // PDF 뷰어
-          <PdfViewer
+          // EmbedPDF 뷰어
+          <EmbedPdfViewer
             pdfUrl={`./pdf/${pdfFilename || document?.filename || ''}`}
             currentPage={pdfCurrentPage}
             onPageChange={(page) => {
@@ -381,10 +381,10 @@ export const SourceViewer: React.FC<SourceViewerProps> = ({
               onPdfPageChange?.(page);
             }}
             onDocumentLoad={(totalPages) => {
-              console.log(`📄 PDF 로드 완료: ${totalPages}페이지`);
+              console.log(`📄 EmbedPDF 로드 완료: ${totalPages}페이지`);
             }}
             onError={(error) => {
-              console.error('PDF 뷰어 오류:', error);
+              console.error('EmbedPDF 뷰어 오류:', error);
             }}
           />
         ) : (
