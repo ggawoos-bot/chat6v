@@ -17,7 +17,7 @@ const Message: React.FC<MessageProps> = ({ message }) => {
   const [isCopied, setIsCopied] = useState(false);
   
   // ✅ 전역 툴팁 관리자 사용
-  const { tooltipRef, tooltipContent, showTooltip, hideTooltip, cancelHide, isTooltipVisible } = useTooltip();
+  const { showTooltip, hideTooltip } = useTooltip();
   
   // ✅ 디바운스를 위한 ref
   const hoverTimeoutRef = React.useRef<NodeJS.Timeout | null>(null);
@@ -58,6 +58,9 @@ const Message: React.FC<MessageProps> = ({ message }) => {
     }
   };
   
+  // ✅ 버튼 위치 추적을 위한 ref
+  const buttonRefs = React.useRef<Map<string, HTMLButtonElement>>(new Map());
+
   // ✅ 툴팁 표시 핸들러 (디바운스 추가 + 중복 방지)
   const handleReferenceHover = useCallback((referenceNumber: number, show: boolean, uniqueKey: string) => {
     if (!message.chunkReferences || message.chunkReferences.length === 0) {
@@ -77,11 +80,23 @@ const Message: React.FC<MessageProps> = ({ message }) => {
           const content = chunk.content.substring(0, 2000) + (chunk.content.length > 2000 ? '...' : '');
           const highlightedContent = highlightKeywords(content, chunk.keywords);
           
+          // ✅ 버튼 위치 가져오기
+          const button = buttonRefs.current.get(uniqueKey);
+          let position: { x: number; y: number } | undefined = undefined;
+          
+          if (button) {
+            const rect = button.getBoundingClientRect();
+            position = {
+              x: rect.left + rect.width / 2,
+              y: rect.bottom + 8
+            };
+          }
+          
           // ✅ 전역 툴팁 관리자 사용
           showTooltip(uniqueKey, {
             title: chunk.documentTitle || chunk.title || '참조',
             content: highlightedContent
-          });
+          }, position);
         }
       }, 150); // 150ms 디바운스
     } else {
@@ -181,6 +196,13 @@ const Message: React.FC<MessageProps> = ({ message }) => {
                             return (
                               <div key={uniqueKey} className="relative inline-block">
                                 <button
+                                  ref={(el) => {
+                                    if (el) {
+                                      buttonRefs.current.set(uniqueKey, el);
+                                    } else {
+                                      buttonRefs.current.delete(uniqueKey);
+                                    }
+                                  }}
                                   type="button"
                                   onClick={(e) => {
                                     e.preventDefault?.();
@@ -194,28 +216,7 @@ const Message: React.FC<MessageProps> = ({ message }) => {
                                 >
                                   {num}
                                 </button>
-                                {/* ✅ 툴팁 */}
-                                {isTooltipVisible(uniqueKey) && tooltipContent && (
-                                  <div 
-                                    className="absolute top-full mt-2 left-1/2 transform -translate-x-1/2 z-50 w-[500px] max-h-[600px] overflow-y-auto bg-white border border-gray-300 rounded-lg shadow-xl p-4"
-                                    onMouseEnter={() => {
-                                      // ✅ 툴팁에 마우스가 들어오면 닫기 타이머 취소
-                                      cancelHide();
-                                    }}
-                                    onMouseLeave={() => {
-                                      // ✅ 툴팁에서 마우스가 떠나면 300ms 후 닫기
-                                      hideTooltip(uniqueKey, 300);
-                                    }}
-                                  >
-                                    <div className="text-sm font-semibold text-gray-800 mb-3 border-b pb-2 sticky top-0 bg-white">
-                                      {tooltipContent.title}
-                                    </div>
-                                    <div 
-                                      className="text-sm text-gray-700 leading-relaxed whitespace-pre-wrap"
-                                      dangerouslySetInnerHTML={{ __html: tooltipContent.content }}
-                                    />
-                                  </div>
-                                )}
+                                {/* ✅ 툴팁은 전역으로 렌더링되므로 여기서는 제거 */}
                               </div>
                             );
                           })}
