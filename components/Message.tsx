@@ -62,7 +62,7 @@ const Message: React.FC<MessageProps> = ({ message }) => {
   const buttonRefs = React.useRef<Map<string, HTMLButtonElement>>(new Map());
 
   // ✅ 툴팁 표시 핸들러 (디바운스 추가 + 중복 방지)
-  const handleReferenceHover = useCallback((referenceNumber: number, show: boolean, uniqueKey: string) => {
+  const handleReferenceHover = useCallback((referenceNumber: number, show: boolean, uniqueKey: string, event?: React.MouseEvent) => {
     if (!message.chunkReferences || message.chunkReferences.length === 0) {
       return;
     }
@@ -80,16 +80,25 @@ const Message: React.FC<MessageProps> = ({ message }) => {
           const content = chunk.content.substring(0, 2000) + (chunk.content.length > 2000 ? '...' : '');
           const highlightedContent = highlightKeywords(content, chunk.keywords);
           
-          // ✅ 버튼 위치 가져오기
-          const button = buttonRefs.current.get(uniqueKey);
+          // ✅ 위치 계산: 마우스 이벤트가 있으면 마우스 위치 사용, 없으면 버튼 위치 사용
           let position: { x: number; y: number } | undefined = undefined;
           
-          if (button) {
-            const rect = button.getBoundingClientRect();
+          if (event) {
+            // 마우스 위치 사용 (마우스에서 약간 오른쪽, 아래쪽에 표시)
             position = {
-              x: rect.left + rect.width / 2,
-              y: rect.bottom + 8
+              x: event.clientX + 20, // 마우스에서 20px 오른쪽
+              y: event.clientY + 20  // 마우스에서 20px 아래
             };
+          } else {
+            // 버튼 위치 사용 (폴백)
+            const button = buttonRefs.current.get(uniqueKey);
+            if (button) {
+              const rect = button.getBoundingClientRect();
+              position = {
+                x: rect.right + 20, // 버튼 오른쪽에서 20px
+                y: rect.top + 20    // 버튼 위에서 20px
+              };
+            }
           }
           
           // ✅ 전역 툴팁 관리자 사용
@@ -209,7 +218,7 @@ const Message: React.FC<MessageProps> = ({ message }) => {
                                     e.stopPropagation?.();
                                     handleReferenceClick(num);
                                   }}
-                                  onMouseEnter={() => handleReferenceHover(num, true, uniqueKey)}
+                                  onMouseEnter={(e) => handleReferenceHover(num, true, uniqueKey, e)}
                                   onMouseLeave={() => handleReferenceHover(num, false, uniqueKey)}
                                   className="inline-flex items-center justify-center w-3.5 h-3.5 min-w-[14px] rounded-full bg-blue-800 hover:bg-blue-900 text-white text-[10px] font-bold transition-colors shadow-sm"
                                   title={`참조 ${num} 클릭`}
