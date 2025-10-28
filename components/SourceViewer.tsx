@@ -25,8 +25,20 @@ export const SourceViewer: React.FC<SourceViewerProps> = ({
     const grouped: Record<number, PDFChunk[]> = {};
     let maxPage = 0;
     
-    chunks.forEach(chunk => {
-      const pageNum = chunk.metadata?.page || 0;
+    // ✅ 모든 청크의 page가 0이거나 없는지 확인
+    const allPagesZero = chunks.length > 0 && chunks.every(c => !c.metadata?.page || c.metadata.page === 0);
+    
+    chunks.forEach((chunk, index) => {
+      let pageNum;
+      
+      // ✅ page 정보가 없으면 position 기반으로 추정 (3개 청크 = 1페이지)
+      if (allPagesZero) {
+        const chunksPerPage = 3;
+        pageNum = Math.floor(index / chunksPerPage) + 1; // 1, 1, 1, 2, 2, 2, ...
+      } else {
+        pageNum = chunk.metadata?.page || 0;
+      }
+      
       if (!grouped[pageNum]) {
         grouped[pageNum] = [];
       }
@@ -152,9 +164,17 @@ export const SourceViewer: React.FC<SourceViewerProps> = ({
       });
       
       const pageNumbers = Object.keys(pageStats).map(Number).sort((a, b) => a - b);
+      const allPagesZero = chunks.every(c => !c.metadata?.page || c.metadata.page === 0);
+      
       console.log(`✅ 소스 뷰어: ${chunks.length}개 청크 로드 완료`);
       console.log(`📄 PDF 최대 페이지: ${maxPage}`);
       console.log(`📋 청크가 있는 페이지: ${pageNumbers.length}개 (${pageNumbers.slice(0, 10).join(', ')}${pageNumbers.length > 10 ? '...' : ''})`);
+      console.log(`🔍 모든 청크의 page가 0: ${allPagesZero}`);
+      
+      if (allPagesZero) {
+        const estimatedPages = Math.ceil(chunks.length / 3);
+        console.log(`📝 Position 기반 페이지 추정: ${estimatedPages}페이지 (청크 ${chunks.length}개 ÷ 3)`);
+      }
     } catch (error) {
       console.error('청크 로드 실패:', error);
       setChunks([]);
