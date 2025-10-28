@@ -397,7 +397,13 @@ function App() {
                 <SourceViewer
                   selectedDocumentId={selectedDocumentId}
                   highlightedChunkId={highlightedChunkId}
-                  onChunkSelect={(chunkId) => setHighlightedChunkId(chunkId)}
+                  onChunkSelect={(chunkId) => {
+                    if (chunkId === '') {
+                      setHighlightedChunkId(undefined);
+                    } else {
+                      setHighlightedChunkId(chunkId);
+                    }
+                  }}
                 />
               ) : (
                 <div className="p-4 space-y-2">

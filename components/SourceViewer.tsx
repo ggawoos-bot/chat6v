@@ -25,9 +25,51 @@ export const SourceViewer: React.FC<SourceViewerProps> = ({
   
   // 현재 페이지의 청크 추출
   const getPaginatedChunks = () => {
+    // 하이라이트된 청크가 있으면 주변 컨텍스트 포함 (임팩트 존 전략)
+    if (highlightedChunkId && chunks.length > 0) {
+      const highlightedIndex = chunks.findIndex(chunk => chunk.id === highlightedChunkId);
+      
+      if (highlightedIndex !== -1) {
+        // 핵심 청크 ±2개 (총 5개 청크)
+        const contextSize = 2;
+        const start = Math.max(0, highlightedIndex - contextSize);
+        const end = Math.min(chunks.length, highlightedIndex + contextSize + 1);
+        
+        return chunks.slice(start, end);
+      }
+    }
+    
+    // 기본 페이지네이션
     const startIndex = (currentPage - 1) * chunksPerPage;
     const endIndex = startIndex + chunksPerPage;
     return chunks.slice(startIndex, endIndex);
+  };
+  
+  // 주변 페이지 정보 가져오기 (미리보기용)
+  const getContextualPages = () => {
+    if (!highlightedChunkId || chunks.length === 0) return null;
+    
+    const highlightedIndex = chunks.findIndex(chunk => chunk.id === highlightedChunkId);
+    if (highlightedIndex === -1) return null;
+    
+    const highlightedChunk = chunks[highlightedIndex];
+    const pageNumber = highlightedChunk.metadata.page;
+    
+    if (!pageNumber) return null;
+    
+    // 이전 페이지와 다음 페이지 찾기
+    const previousPageChunks = chunks
+      .filter(chunk => chunk.metadata.page === pageNumber - 1)
+      .slice(0, 1); // 각 페이지에서 첫 번째 청크만
+    
+    const nextPageChunks = chunks
+      .filter(chunk => chunk.metadata.page === pageNumber + 1)
+      .slice(0, 1);
+    
+    return {
+      previous: previousPageChunks,
+      next: nextPageChunks
+    };
   };
   
   // 페이지 변경 함수
@@ -81,11 +123,8 @@ export const SourceViewer: React.FC<SourceViewerProps> = ({
       const chunkIndex = chunks.findIndex(chunk => chunk.id === highlightedChunkId);
       
       if (chunkIndex !== -1) {
-        // 해당 청크가 있는 페이지로 이동
-        const targetPage = Math.floor(chunkIndex / chunksPerPage) + 1;
-        if (targetPage !== currentPage) {
-          setCurrentPage(targetPage);
-        }
+        // 하이라이트가 설정되면 페이지를 1로 리셋 (같은 페이지의 모든 청크 표시)
+        setCurrentPage(1);
         
         // 페이지 이동 후 하이라이트
         setTimeout(() => {
@@ -145,12 +184,34 @@ export const SourceViewer: React.FC<SourceViewerProps> = ({
     <div className="flex flex-col h-full bg-brand-surface">
       {/* 헤더 - 고정 */}
       <div className="bg-brand-surface border-b border-brand-secondary px-4 py-3 flex-shrink-0">
-        <h2 className="text-lg font-semibold text-brand-text-primary truncate">{documentTitle}</h2>
-        <div className="flex items-center justify-between mt-1">
+        <div className="flex items-center justify-between mb-2">
+          <h2 className="text-lg font-semibold text-brand-text-primary truncate">{documentTitle}</h2>
+          {/* 컨텍스트 모드 표시 */}
+          {highlightedChunkId && getPaginatedChunks().length > 0 && (
+            <span className="px-2 py-1 bg-yellow-100 text-yellow-800 rounded text-xs whitespace-nowrap ml-2">
+              컨텍스트 모드 • {getPaginatedChunks().length}개 항목 표시 중
+            </span>
+          )}
+        </div>
+        <div className="flex items-center justify-between">
           <p className="text-xs text-brand-text-secondary">
             총 {chunks.length}개 청크
           </p>
-          {chunks.length > 0 && (
+          <div className="flex items-center gap-2">
+            {highlightedChunkId && onChunkSelect && (
+              <button
+                onClick={() => {
+                  // 전체 문서 모드로 전환 (하이라이트 해제)
+                  if (onChunkSelect) {
+                    onChunkSelect('');
+                  }
+                }}
+                className="px-3 py-1 bg-brand-primary text-white text-xs rounded hover:bg-blue-600 transition-colors"
+              >
+                전체 문서 보기
+              </button>
+            )}
+            {chunks.length > 0 && !highlightedChunkId && (
             <div className="flex items-center gap-2">
               <button
                 onClick={handlePreviousPage}
@@ -176,7 +237,8 @@ export const SourceViewer: React.FC<SourceViewerProps> = ({
                 </svg>
               </button>
             </div>
-          )}
+            )}
+          </div>
         </div>
       </div>
 
@@ -190,9 +252,9 @@ export const SourceViewer: React.FC<SourceViewerProps> = ({
             <div
               key={chunk.id}
               id={`chunk-${chunk.id}`}
-              className={`p-4 rounded-lg border transition-all duration-200 cursor-pointer ${
+              className={`p-4 rounded-lg border-2 transition-all duration-200 cursor-pointer ${
                 isHighlighted
-                  ? 'border-yellow-400 bg-yellow-50 highlight-animation shadow-md'
+                  ? 'border-yellow-500 bg-yellow-100 text-brand-text-primary highlight-animation shadow-lg'
                   : 'border-brand-secondary bg-brand-surface hover:border-brand-primary hover:shadow-sm'
               }`}
               onClick={() => handleChunkClick(chunk.id)}
@@ -241,6 +303,37 @@ export const SourceViewer: React.FC<SourceViewerProps> = ({
             </div>
           );
         })}
+        
+        {/* 주변 페이지 미리보기 */}
+        {getContextualPages() && getContextualPages() && (
+          <div className="border-t border-brand-secondary mt-6 pt-4">
+            <p className="text-xs text-brand-text-secondary mb-2 px-2">
+              주변 페이지 힌트
+            </p>
+            <div className="space-y-2 overflow-y-auto max-h-40">
+              {getContextualPages()?.previous && getContextualPages()!.previous.length > 0 && (
+                <div className="bg-brand-secondary rounded p-2">
+                  <div className="text-xs text-brand-text-secondary font-semibold mb-1">
+                    ← 이전 페이지 ({getContextualPages()!.previous[0].metadata.page}페이지)
+                  </div>
+                  <div className="text-xs text-brand-text-primary line-clamp-2">
+                    {getContextualPages()!.previous[0].content.substring(0, 150)}...
+                  </div>
+                </div>
+              )}
+              {getContextualPages()?.next && getContextualPages()!.next.length > 0 && (
+                <div className="bg-brand-secondary rounded p-2">
+                  <div className="text-xs text-brand-text-secondary font-semibold mb-1">
+                    다음 페이지 → ({getContextualPages()!.next[0].metadata.page}페이지)
+                  </div>
+                  <div className="text-xs text-brand-text-primary line-clamp-2">
+                    {getContextualPages()!.next[0].content.substring(0, 150)}...
+                  </div>
+                </div>
+              )}
+            </div>
+          </div>
+        )}
         </div>
       </div>
     </div>
