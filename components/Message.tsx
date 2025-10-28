@@ -16,6 +16,9 @@ const Message: React.FC<MessageProps> = ({ message }) => {
   const [isCopied, setIsCopied] = useState(false);
   const [tooltipRef, setTooltipRef] = useState<string | null>(null);
   const [tooltipContent, setTooltipContent] = useState<{title: string, content: string} | null>(null);
+  
+  // ✅ 디바운스를 위한 ref
+  const hoverTimeoutRef = React.useRef<NodeJS.Timeout | null>(null);
 
   // ✅ 키워드 하이라이트 함수
   const highlightKeywords = (text: string, keywords?: string[]) => {
@@ -60,28 +63,37 @@ const Message: React.FC<MessageProps> = ({ message }) => {
     }
   };
   
-  // ✅ 툴팁 표시 핸들러
+  // ✅ 툴팁 표시 핸들러 (디바운스 추가)
   const handleReferenceHover = (referenceNumber: number, show: boolean, uniqueKey: string) => {
     if (!message.chunkReferences || message.chunkReferences.length === 0) {
       return;
     }
     
+    // 이전 타이머 클리어
+    if (hoverTimeoutRef.current) {
+      clearTimeout(hoverTimeoutRef.current);
+    }
+    
     if (show) {
-      const chunkIndex = referenceNumber - 1;
-      if (chunkIndex >= 0 && chunkIndex < message.chunkReferences.length) {
-        const chunk = message.chunkReferences[chunkIndex];
-        setTooltipRef(uniqueKey);
-        const content = chunk.content.substring(0, 2000) + (chunk.content.length > 2000 ? '...' : '');
-        const highlightedContent = highlightKeywords(content, chunk.keywords);
-        
-        setTooltipContent({
-          title: chunk.documentTitle || chunk.title || '참조',
-          content: highlightedContent
-        });
-      }
+      hoverTimeoutRef.current = setTimeout(() => {
+        const chunkIndex = referenceNumber - 1;
+        if (chunkIndex >= 0 && chunkIndex < message.chunkReferences.length) {
+          const chunk = message.chunkReferences[chunkIndex];
+          setTooltipRef(uniqueKey);
+          const content = chunk.content.substring(0, 2000) + (chunk.content.length > 2000 ? '...' : '');
+          const highlightedContent = highlightKeywords(content, chunk.keywords);
+          
+          setTooltipContent({
+            title: chunk.documentTitle || chunk.title || '참조',
+            content: highlightedContent
+          });
+        }
+      }, 100); // 100ms 디바운스
     } else {
-      setTooltipRef(null);
-      setTooltipContent(null);
+      hoverTimeoutRef.current = setTimeout(() => {
+        setTooltipRef(null);
+        setTooltipContent(null);
+      }, 200); // 떠나는 것도 200ms 디바운스
     }
   };
 
@@ -209,7 +221,11 @@ const Message: React.FC<MessageProps> = ({ message }) => {
                                 </button>
                                 {/* ✅ 툴팁 */}
                                 {tooltipRef === uniqueKey && tooltipContent && (
-                                  <div className="absolute bottom-full mb-2 left-1/2 transform -translate-x-1/2 z-50 w-[500px] max-h-[600px] overflow-y-auto bg-white border border-gray-300 rounded-lg shadow-xl p-4">
+                                  <div 
+                                    className="absolute bottom-full mb-2 left-1/2 transform -translate-x-1/2 z-50 w-[500px] max-h-[600px] overflow-y-auto bg-white border border-gray-300 rounded-lg shadow-xl p-4"
+                                    onMouseEnter={() => handleReferenceHover(num, true, uniqueKey)}
+                                    onMouseLeave={() => handleReferenceHover(num, false, uniqueKey)}
+                                  >
                                     <div className="text-sm font-semibold text-gray-800 mb-3 border-b pb-2 sticky top-0 bg-white">
                                       {tooltipContent.title}
                                     </div>
