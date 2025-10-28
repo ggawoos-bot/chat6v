@@ -88,6 +88,54 @@ export const TooltipProvider: React.FC<{ children: React.ReactNode }> = ({ child
     }
   }, [tooltipRef, hideTooltip]);
 
+  // ✅ 툴팁 위치 계산 함수 - 화면 경계 고려
+  const calculateTooltipPosition = useCallback((position: TooltipPosition | null): React.CSSProperties => {
+    if (!position) {
+      return {
+        left: '50%',
+        top: '50%',
+        transform: 'translate(-50%, -50%)'
+      };
+    }
+
+    const tooltipWidth = 500;
+    const tooltipHeight = 400; // 대략적인 높이
+    const windowWidth = window.innerWidth;
+    const windowHeight = window.innerHeight;
+
+    let left = position.x;
+    let top = position.y;
+    let transformX = '-50%';
+    let transformY = '0';
+
+    // ✅ 가로 위치 조정 - 화면 왼쪽 경계 체크
+    if (left - tooltipWidth / 2 < 10) {
+      left = tooltipWidth / 2 + 10;
+    }
+    // ✅ 가로 위치 조정 - 화면 오른쪽 경계 체크
+    if (left + tooltipWidth / 2 > windowWidth - 10) {
+      left = windowWidth - tooltipWidth / 2 - 10;
+    }
+
+    // ✅ 세로 위치 조정 - 화면 아래 경계 체크 (툴팁이 아래로 표시될 때)
+    if (top + tooltipHeight > windowHeight - 10) {
+      // 화면 아래에 공간이 부족하면 위쪽에 표시
+      top = position.y - 20; // 버튼 위쪽에 표시
+      transformY = '-100%';
+    }
+
+    // ✅ 세로 위치 조정 - 화면 위 경계 체크
+    if (top < 10) {
+      top = 10;
+    }
+
+    return {
+      left: `${left}px`,
+      top: `${top}px`,
+      transform: `translate(${transformX}, ${transformY})`
+    };
+  }, []);
+
   return (
     <TooltipContext.Provider value={{
       tooltipRef,
@@ -103,15 +151,7 @@ export const TooltipProvider: React.FC<{ children: React.ReactNode }> = ({ child
       {tooltipRef && tooltipContent && (
         <div 
           className="fixed z-[9999] pointer-events-none"
-          style={tooltipPosition ? {
-            left: `${tooltipPosition.x}px`,
-            top: `${tooltipPosition.y}px`,
-            transform: 'translateX(-50%)'
-          } : {
-            left: '50%',
-            top: '50%',
-            transform: 'translate(-50%, -50%)'
-          }}
+          style={calculateTooltipPosition(tooltipPosition)}
         >
           <div 
             className="w-[500px] max-h-[600px] overflow-y-auto bg-white border border-gray-300 rounded-lg shadow-xl p-4 pointer-events-auto"
