@@ -5,8 +5,8 @@ import { Document, Page, pdfjs } from 'react-pdf';
 import 'react-pdf/dist/Page/AnnotationLayer.css';
 import 'react-pdf/dist/Page/TextLayer.css';
 
-// PDF.js 워커 설정
-pdfjs.GlobalWorkerOptions.workerSrc = `//cdnjs.cloudflare.com/ajax/libs/pdf.js/${pdfjs.version}/pdf.worker.min.js`;
+// PDF.js 워커 설정 (로컬 파일 사용)
+pdfjs.GlobalWorkerOptions.workerSrc = './assets/pdf.worker.min.js';
 
 interface EmbedPdfViewerProps {
   pdfUrl: string;

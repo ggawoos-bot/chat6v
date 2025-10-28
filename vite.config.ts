@@ -101,12 +101,6 @@ export default defineConfig(({ mode }) => {
             chat: path.resolve(__dirname, 'chat_index.html'),
             simple: path.resolve(__dirname, 'simple.html'),
             test: path.resolve(__dirname, 'index2.html')
-          },
-          external: ['pdfjs-dist'],
-          output: {
-            globals: {
-              'pdfjs-dist': 'pdfjsLib'
-            }
           }
         }
       }
