@@ -167,4 +167,15 @@ const ChatWindow: React.FC<ChatWindowProps> = ({
   );
 };
 
-export default ChatWindow;
+// React.memo로 ChatWindow 최적화 - 불필요한 리렌더링 방지
+export default React.memo(ChatWindow, (prevProps, nextProps) => {
+  // resetTrigger, isLoading, placeholder 변경 시에만 리렌더링
+  return (
+    prevProps.resetTrigger === nextProps.resetTrigger &&
+    prevProps.isLoading === nextProps.isLoading &&
+    prevProps.placeholder === nextProps.placeholder &&
+    prevProps.onSendMessage === nextProps.onSendMessage &&
+    prevProps.onStreamingMessage === nextProps.onStreamingMessage &&
+    prevProps.onResetMessages === nextProps.onResetMessages
+  );
+});
