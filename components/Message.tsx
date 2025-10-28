@@ -195,7 +195,7 @@ const Message: React.FC<MessageProps> = ({ message }) => {
                                   }}
                                   onMouseEnter={() => handleReferenceHover(num, true, uniqueKey)}
                                   onMouseLeave={() => handleReferenceHover(num, false, uniqueKey)}
-                                  className="inline-flex items-center justify-center w-7 h-7 min-w-[28px] rounded-full bg-blue-500 hover:bg-blue-600 text-white text-xs font-bold transition-colors shadow-sm hover:shadow-md"
+                                  className="inline-flex items-center justify-center w-3.5 h-3.5 min-w-[14px] rounded-full bg-blue-800 hover:bg-blue-900 text-white text-[10px] font-bold transition-colors shadow-sm"
                                   title={`참조 ${num} 클릭`}
                                 >
                                   {num}
