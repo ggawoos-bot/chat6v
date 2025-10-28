@@ -68,9 +68,10 @@ const Message: React.FC<MessageProps> = ({ message }) => {
     }
     
     if (show) {
-      // ✅ 현재 열려있는 툴팁과 같으면 업데이트하지 않음
-      if (tooltipRef === uniqueKey && tooltipContent) {
-        return;
+      // ✅ 새로운 툴팁을 열기 전에 다른 툴팁을 먼저 닫기
+      if (tooltipRef && tooltipRef !== uniqueKey) {
+        setTooltipRef(null);
+        setTooltipContent(null);
       }
       
       hoverTimeoutRef.current = setTimeout(() => {
