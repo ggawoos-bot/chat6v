@@ -223,7 +223,7 @@ export const SourceViewer: React.FC<SourceViewerProps> = ({
         
         // 페이지 이동 후 하이라이트
         setTimeout(() => {
-          const element = document.getElementById(`chunk-${highlightedChunkId}`);
+          const element = (document as any).getElementById(`chunk-${highlightedChunkId}`);
           if (element) {
             // 기존 타이머 정리
             if (highlightTimeoutRef.current) {
@@ -374,10 +374,9 @@ export const SourceViewer: React.FC<SourceViewerProps> = ({
         {pdfViewerMode === 'pdf' ? (
           // EmbedPDF 뷰어
           <EmbedPdfViewer
-            pdfUrl={`./pdf/${pdfFilename || document?.filename || ''}`}
+            pdfUrl={`/chat6v/pdf/${pdfFilename || document?.filename || ''}`}
             currentPage={pdfCurrentPage}
             onPageChange={(page) => {
-              setPdfCurrentPage(page);
               onPdfPageChange?.(page);
             }}
             onDocumentLoad={(totalPages) => {

@@ -707,7 +707,7 @@ Here is the source material:
   private async loadDefaultSources() {
     try {
       // manifest.json에서 PDF 파일 목록을 동적으로 로드
-      const manifestUrl = './pdf/manifest.json';
+      const manifestUrl = '/chat6v/pdf/manifest.json';
       console.log('Loading PDF sources from manifest:', manifestUrl);
       
       const response = await fetch(manifestUrl);
@@ -1593,7 +1593,7 @@ Here is the source material:
   // 실제 PDF 파일들을 파싱하여 소스 텍스트 생성 (최적화된 버전)
   async loadPdfSourcesOptimized(): Promise<string> {
     // public 폴더에서 PDF 파일들 로드
-    const PDF_BASE_URL = './pdf/';
+    const PDF_BASE_URL = '/chat6v/pdf/';
     
     try {
       console.log('Attempting to load PDF sources from:', PDF_BASE_URL);
