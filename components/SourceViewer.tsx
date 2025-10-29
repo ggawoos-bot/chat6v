@@ -36,7 +36,6 @@ export const SourceViewer: React.FC<SourceViewerProps> = ({
   // ✅ PDF 페이지 번호로 그룹화
   const chunksByPage = React.useMemo(() => {
     const grouped: Record<number, PDFChunk[]> = {};
-    let maxPage = 0;
     
     // ✅ 모든 청크의 page가 0이거나 없는지 확인
     const allPagesZero = chunks.length > 0 && chunks.every(c => !c.metadata?.page || c.metadata.page === 0);
@@ -63,20 +62,22 @@ export const SourceViewer: React.FC<SourceViewerProps> = ({
         grouped[pageNum] = [];
       }
       grouped[pageNum].push(chunk);
-      
-      // 최대 페이지 번호 추적
-      if (pageNum > maxPage) {
-        maxPage = pageNum;
-      }
     });
-    
-    // 최대 페이지 번호 업데이트
-    if (maxPage > 0) {
-      setMaxPdfPage(maxPage);
-    }
     
     return grouped;
   }, [chunks, documentTotalPages]);
+
+  // ✅ maxPdfPage 상태 업데이트 (useEffect로 분리하여 Side Effect 제거)
+  React.useEffect(() => {
+    const pages = Object.keys(chunksByPage).map(Number);
+    const maxPage = pages.length > 0 ? Math.max(...pages) : 0;
+    if (maxPage > 0) {
+      setMaxPdfPage(maxPage);
+    } else if (documentTotalPages > 0) {
+      // documentTotalPages가 있으면 그것을 사용
+      setMaxPdfPage(documentTotalPages);
+    }
+  }, [chunksByPage, documentTotalPages]);
 
   // ✅ PDF 페이지 번호 배열
   const pdfPageNumbers = React.useMemo(() => {

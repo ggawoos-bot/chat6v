@@ -124,6 +124,19 @@ export const EmbedPdfViewer: React.FC<EmbedPdfViewerProps> = ({
     }
   };
 
+  // PDF URL이 없는 경우 명확한 에러 메시지 표시
+  if (!absolutePdfUrl) {
+    return (
+      <div className="flex items-center justify-center h-full">
+        <div className="text-center">
+          <div className="text-red-500 mb-4 text-lg">❌ PDF URL 오류</div>
+          <div className="text-gray-600 mb-4 text-sm">PDF 파일을 찾을 수 없습니다.</div>
+          <div className="text-gray-500 text-xs">파일명이 제공되지 않았습니다.</div>
+        </div>
+      </div>
+    );
+  }
+
   if (loading && !error) {
     return (
       <div className="flex items-center justify-center h-full">
@@ -138,6 +151,7 @@ export const EmbedPdfViewer: React.FC<EmbedPdfViewerProps> = ({
         <div className="text-center">
           <div className="text-red-500 mb-4 text-lg">❌ PDF 로드 실패</div>
           <div className="text-gray-600 mb-4 text-sm">{error}</div>
+          <div className="text-gray-500 text-xs mb-4">URL: {absolutePdfUrl}</div>
           <button
             onClick={() => {
               setError(null);

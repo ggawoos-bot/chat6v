@@ -171,9 +171,13 @@ async function clearAllExistingData() {
 
 
 // 개별 청크를 Firestore에 저장
-async function saveChunkToFirestore(documentId, filename, chunk, index, position) {
+async function saveChunkToFirestore(documentId, filename, chunk, index, position, totalTextLength = 0, totalPages = 0) {
   try {
     const keywords = extractKeywords(chunk);
+    // ✅ 페이지 번호 계산 (텍스트 위치 기반)
+    const pageNumber = totalPages > 0 && totalTextLength > 0
+      ? calculatePageNumber(position, totalTextLength, totalPages)
+      : 1; // 페이지 정보가 없으면 기본값 1
     
     const chunkData = {
       documentId: documentId,
@@ -185,7 +189,8 @@ async function saveChunkToFirestore(documentId, filename, chunk, index, position
         startPos: position,
         endPos: position + chunk.length,
         originalSize: chunk.length,
-        source: 'Direct PDF Processing'
+        source: 'Direct PDF Processing',
+        page: pageNumber // ✅ 페이지 정보 추가
       },
       searchableText: chunk.toLowerCase(),
       createdAt: Timestamp.now(),
@@ -200,8 +205,15 @@ async function saveChunkToFirestore(documentId, filename, chunk, index, position
   }
 }
 
+// 페이지 번호 계산 함수 (텍스트 위치 기반)
+function calculatePageNumber(textPosition, totalTextLength, totalPages) {
+  if (totalPages === 0 || totalTextLength === 0) return 1;
+  const pageNumber = Math.floor((textPosition / totalTextLength) * totalPages) + 1;
+  return Math.min(pageNumber, totalPages); // 최대 페이지 수 제한
+}
+
 // 스트리밍 청크 처리 (WriteBatch 최적화) - 수정된 버전
-async function processChunksStreaming(documentId, filename, text) {
+async function processChunksStreaming(documentId, filename, text, totalPages = 0) {
   const chunkSize = 2000;
   const overlap = 200;
   let position = 0;
@@ -215,6 +227,9 @@ async function processChunksStreaming(documentId, filename, text) {
   const batchSize = 2; // WriteBatch 크기 (메모리 안정성을 위해 2개)
   
   console.log(`📦 스트리밍 청크 처리 시작: ${text.length.toLocaleString()}자`);
+  if (totalPages > 0) {
+    console.log(`📄 총 페이지 수: ${totalPages} (페이지 정보 저장 활성화)`);
+  }
   console.log(`🔧 배치 크기: ${batchSize}개 (메모리 안정적 모드)`);
   console.log(`💾 초기 메모리: ${JSON.stringify(getMemoryUsage())}MB`);
   
@@ -251,6 +266,11 @@ async function processChunksStreaming(documentId, filename, text) {
     
     // 청크 데이터 수집
     const keywords = extractKeywords(chunk.trim());
+    // ✅ 페이지 번호 계산 (텍스트 위치 기반)
+    const pageNumber = totalPages > 0 
+      ? calculatePageNumber(position, text.length, totalPages)
+      : 1; // 페이지 정보가 없으면 기본값 1
+    
     chunkDataList.push({
       documentId: documentId,
       filename: filename,
@@ -261,7 +281,8 @@ async function processChunksStreaming(documentId, filename, text) {
         startPos: position,
         endPos: position + chunk.length,
         originalSize: chunk.length,
-        source: 'Direct PDF Processing'
+        source: 'Direct PDF Processing',
+        page: pageNumber // ✅ 페이지 정보 추가
       },
       searchableText: chunk.trim().toLowerCase(),
       createdAt: Timestamp.now(),
@@ -461,7 +482,7 @@ async function processPdfStreaming(pdfFile, pdfPath, index, totalFiles) {
     
     // 스트리밍 청크 처리
     console.log(`[3/3] 스트리밍 청크 처리 중...`);
-    const addedChunks = await processChunksStreaming(documentId, pdfFile, pdfData.text);
+    const addedChunks = await processChunksStreaming(documentId, pdfFile, pdfData.text, pdfData.pages || 0);
     
     console.log(`[4/4] 메모리 정리 중...`);
     

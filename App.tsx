@@ -144,6 +144,7 @@ function App() {
       
       if (matchingDoc) {
         setSelectedDocumentId(matchingDoc.id);
+        setPdfFilename(matchingDoc.filename); // ✅ PDF 파일명 설정 추가
         console.log('✅ 소스 선택 완료:', matchingDoc.title, 'ID:', matchingDoc.id);
       } else {
         console.warn('❌ 문서를 찾을 수 없습니다. sourceId:', sourceId, '전체 문서:', allDocuments.map(d => d.filename));
