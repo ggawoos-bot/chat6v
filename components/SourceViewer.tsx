@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useRef } from 'react';
+import React, { useState, useEffect, useRef, useMemo } from 'react';
 import { FirestoreService, PDFChunk, PDFDocument } from '../services/firestoreService';
 import EmbedPdfViewer from './EmbedPdfViewer';
 
@@ -87,6 +87,14 @@ export const SourceViewer: React.FC<SourceViewerProps> = ({
 
   // ✅ 전체 페이지 수는 문서의 실제 총 페이지 수를 우선 사용
   const totalPages = documentTotalPages > 0 ? documentTotalPages : (maxPdfPage || pdfPageNumbers.length);
+  
+  // ✅ PDF URL 생성 (파일명 URL 인코딩)
+  const pdfUrl = useMemo(() => {
+    const filename = pdfFilename || document?.filename || '';
+    if (!filename) return '';
+    const encodedFilename = encodeURIComponent(filename);
+    return `/chat6v/pdf/${encodedFilename}`;
+  }, [pdfFilename, document?.filename]);
   
   // 현재 페이지의 청크 추출
   const getPaginatedChunks = () => {
@@ -374,7 +382,7 @@ export const SourceViewer: React.FC<SourceViewerProps> = ({
         {pdfViewerMode === 'pdf' ? (
           // EmbedPDF 뷰어
           <EmbedPdfViewer
-            pdfUrl={`/chat6v/pdf/${pdfFilename || document?.filename || ''}`}
+            pdfUrl={pdfUrl}
             currentPage={pdfCurrentPage}
             onPageChange={(page) => {
               onPdfPageChange?.(page);
