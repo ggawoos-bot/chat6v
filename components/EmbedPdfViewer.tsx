@@ -5,7 +5,7 @@ import { usePdfiumEngine } from '@embedpdf/engines/react';
 import { ViewportPluginPackage, Viewport } from '@embedpdf/plugin-viewport/react';
 import { ScrollPluginPackage, Scroller } from '@embedpdf/plugin-scroll/react';
 import { RenderPluginPackage, RenderLayer } from '@embedpdf/plugin-render/react';
-import { LoaderPluginPackage } from '@embedpdf/plugin-loader/react';
+import { LoaderPluginPackage, useLoader } from '@embedpdf/plugin-loader/react';
 
 interface EmbedPdfViewerProps {
   pdfUrl: string;
@@ -23,6 +23,7 @@ export const EmbedPdfViewer: React.FC<EmbedPdfViewerProps> = ({
   onError
 }) => {
   const { engine, isLoading, error: engineError } = usePdfiumEngine();
+  const { state: loaderState, error: loaderError } = useLoader();
   const [totalPages, setTotalPages] = useState<number>(0);
   const [error, setError] = useState<string | null>(null);
 
@@ -31,10 +32,7 @@ export const EmbedPdfViewer: React.FC<EmbedPdfViewerProps> = ({
     createPluginRegistration(LoaderPluginPackage, {
       loadingOptions: {
         type: 'url',
-        pdfFile: {
-          id: 'pdf-document',
-          url: pdfUrl,
-        },
+        url: pdfUrl,
       },
     }),
     createPluginRegistration(ViewportPluginPackage),
@@ -44,11 +42,13 @@ export const EmbedPdfViewer: React.FC<EmbedPdfViewerProps> = ({
 
   // PDF 로드 완료 처리
   useEffect(() => {
-    if (engine && totalPages > 0) {
-      console.log(`✅ EmbedPDF 로드 완료: ${totalPages}페이지`);
-      onDocumentLoad?.(totalPages);
+    if (loaderState?.document && loaderState.document.numPages) {
+      const pages = loaderState.document.numPages;
+      setTotalPages(pages);
+      console.log(`✅ EmbedPDF 로드 완료: ${pages}페이지`);
+      onDocumentLoad?.(pages);
     }
-  }, [engine, totalPages, onDocumentLoad]);
+  }, [loaderState, onDocumentLoad]);
 
   // 에러 처리
   useEffect(() => {
@@ -56,8 +56,12 @@ export const EmbedPdfViewer: React.FC<EmbedPdfViewerProps> = ({
       const errorMessage = `PDF 엔진 오류: ${engineError.message}`;
       setError(errorMessage);
       onError?.(errorMessage);
+    } else if (loaderError) {
+      const errorMessage = `PDF 로드 오류: ${loaderError.message}`;
+      setError(errorMessage);
+      onError?.(errorMessage);
     }
-  }, [engineError, onError]);
+  }, [engineError, loaderError, onError]);
 
   // 페이지 변경 처리
   const handlePageChange = (pageIndex: number) => {
@@ -69,6 +73,14 @@ export const EmbedPdfViewer: React.FC<EmbedPdfViewerProps> = ({
     return (
       <div className="flex items-center justify-center h-full">
         <div className="text-gray-500">PDF 엔진 로딩 중...</div>
+      </div>
+    );
+  }
+
+  if (loaderState?.loading) {
+    return (
+      <div className="flex items-center justify-center h-full">
+        <div className="text-gray-500">PDF 로딩 중...</div>
       </div>
     );
   }
