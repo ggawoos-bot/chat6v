@@ -1,11 +1,10 @@
-import React, { useState, useEffect, useMemo } from 'react';
-import { EmbedPDF } from '@embedpdf/core/react';
-import { createPluginRegistration } from '@embedpdf/core';
-import { usePdfiumEngine } from '@embedpdf/engines/react';
-import { ViewportPluginPackage, Viewport } from '@embedpdf/plugin-viewport/react';
-import { ScrollPluginPackage, Scroller } from '@embedpdf/plugin-scroll/react';
-import { RenderPluginPackage, RenderLayer } from '@embedpdf/plugin-render/react';
-import { LoaderPluginPackage } from '@embedpdf/plugin-loader/react';
+import React, { useState, useEffect } from 'react';
+import { Document, Page, pdfjs } from 'react-pdf';
+import 'react-pdf/dist/esm/Page/AnnotationLayer.css';
+import 'react-pdf/dist/esm/Page/TextLayer.css';
+
+// PDF.js Worker 설정
+pdfjs.GlobalWorkerOptions.workerSrc = `//cdnjs.cloudflare.com/ajax/libs/pdf.js/${pdfjs.version}/pdf.worker.min.js`;
 
 interface EmbedPdfViewerProps {
   pdfUrl: string;
@@ -22,13 +21,13 @@ export const EmbedPdfViewer: React.FC<EmbedPdfViewerProps> = ({
   onDocumentLoad,
   onError
 }) => {
-  const { engine, isLoading, error: engineError } = usePdfiumEngine();
-  const [totalPages, setTotalPages] = useState<number>(0);
+  const [numPages, setNumPages] = useState<number>(0);
+  const [pageNumber, setPageNumber] = useState<number>(currentPage);
+  const [loading, setLoading] = useState<boolean>(true);
   const [error, setError] = useState<string | null>(null);
-  const [isLoadingPdf, setIsLoadingPdf] = useState<boolean>(true);
 
   // PDF URL을 절대 경로로 변환
-  const absolutePdfUrl = useMemo(() => {
+  const absolutePdfUrl = React.useMemo(() => {
     if (!pdfUrl) return '';
     
     // 이미 절대 URL인 경우 그대로 사용
@@ -50,97 +49,60 @@ export const EmbedPdfViewer: React.FC<EmbedPdfViewerProps> = ({
     return `${window.location.origin}/${pdfUrl}`;
   }, [pdfUrl]);
 
-  // EmbedPDF 플러그인 등록 (pdfUrl이 변경될 때만 재생성)
-  const plugins = useMemo(() => [
-    createPluginRegistration(LoaderPluginPackage, {
-      loadingOptions: {
-        type: 'url',
-        pdfFile: {
-          id: 'pdf-document',
-          url: absolutePdfUrl,
-        },
-      },
-    }),
-    createPluginRegistration(ViewportPluginPackage),
-    createPluginRegistration(ScrollPluginPackage),
-    createPluginRegistration(RenderPluginPackage),
-  ], [absolutePdfUrl]);
-
-  // PDF URL 변경 시 디버깅 정보 출력 및 파일 존재 확인
+  // currentPage가 변경되면 pageNumber 업데이트
   useEffect(() => {
-    console.log('🔍 EmbedPDF URL 변경:', {
-      originalUrl: pdfUrl,
-      absoluteUrl: absolutePdfUrl,
-      currentOrigin: window.location.origin
-    });
-    
-    // PDF 파일 존재 여부 확인
-    if (absolutePdfUrl) {
-      fetch(absolutePdfUrl, { method: 'HEAD' })
-        .then(response => {
-          if (response.ok) {
-            console.log('✅ PDF 파일 존재 확인:', absolutePdfUrl);
-          } else {
-            console.error('❌ PDF 파일을 찾을 수 없음:', absolutePdfUrl, response.status);
-            setError(`PDF 파일을 찾을 수 없습니다: ${response.status}`);
-            setIsLoadingPdf(false);
-            onError?.(`PDF 파일을 찾을 수 없습니다: ${response.status}`);
-          }
-        })
-        .catch(error => {
-          console.error('❌ PDF 파일 확인 중 오류:', error);
-          setError(`PDF 파일 확인 중 오류: ${error.message}`);
-          setIsLoadingPdf(false);
-          onError?.(`PDF 파일 확인 중 오류: ${error.message}`);
-        });
+    if (currentPage > 0 && currentPage <= numPages) {
+      setPageNumber(currentPage);
+    } else if (currentPage > 0 && numPages === 0) {
+      // numPages가 아직 로드되지 않은 경우 currentPage를 일단 설정
+      setPageNumber(currentPage);
     }
-  }, [pdfUrl, absolutePdfUrl, onError]);
+  }, [currentPage, numPages]);
 
-  // PDF URL 변경 시 로딩 상태 초기화
-  useEffect(() => {
-    setIsLoadingPdf(true);
+  // PDF 로드 성공 처리
+  const onDocumentLoadSuccess = ({ numPages }: { numPages: number }) => {
+    console.log(`✅ PDF 로드 성공: ${numPages}페이지`);
+    setNumPages(numPages);
+    setLoading(false);
     setError(null);
-    setTotalPages(0);
+    onDocumentLoad?.(numPages);
     
-    // 30초 후에도 로딩이 완료되지 않으면 에러로 처리
-    const timeout = setTimeout(() => {
-      if (isLoadingPdf) {
-        const errorMessage = 'PDF 로딩 시간 초과 (30초)';
-        console.error('❌ PDF 로딩 타임아웃');
-        setError(errorMessage);
-        setIsLoadingPdf(false);
-        onError?.(errorMessage);
-      }
-    }, 30000);
-    
-    return () => clearTimeout(timeout);
-  }, [pdfUrl, isLoadingPdf, onError]);
-
-  // 엔진 에러 처리
-  useEffect(() => {
-    if (engineError) {
-      const errorMessage = `PDF 엔진 오류: ${engineError.message}`;
-      console.error('❌ PDF 엔진 오류:', engineError);
-      setError(errorMessage);
-      onError?.(errorMessage);
+    // currentPage가 유효한 범위인지 확인
+    if (currentPage > 0 && currentPage <= numPages) {
+      setPageNumber(currentPage);
+      onPageChange?.(currentPage);
+    } else {
+      setPageNumber(1);
+      onPageChange?.(1);
     }
-  }, [engineError, onError]);
-
-  // 페이지 변경 처리
-  const handlePageChange = (pageIndex: number) => {
-    const pageNumber = pageIndex + 1; // EmbedPDF는 0-based index 사용
-    onPageChange?.(pageNumber);
   };
 
-  if (isLoading || !engine) {
-    return (
-      <div className="flex items-center justify-center h-full">
-        <div className="text-gray-500">PDF 엔진 로딩 중...</div>
-      </div>
-    );
-  }
+  // PDF 로드 에러 처리
+  const onDocumentLoadError = (error: Error) => {
+    console.error('❌ PDF 로드 오류:', error);
+    const errorMessage = `PDF 로드 실패: ${error.message}`;
+    setError(errorMessage);
+    setLoading(false);
+    onError?.(errorMessage);
+  };
 
-  if (isLoadingPdf) {
+  // 페이지 변경 처리
+  const changePage = (offset: number) => {
+    const newPage = pageNumber + offset;
+    if (newPage >= 1 && newPage <= numPages) {
+      setPageNumber(newPage);
+      onPageChange?.(newPage);
+    }
+  };
+
+  const goToPage = (page: number) => {
+    if (page >= 1 && page <= numPages) {
+      setPageNumber(page);
+      onPageChange?.(page);
+    }
+  };
+
+  if (loading && !error) {
     return (
       <div className="flex items-center justify-center h-full">
         <div className="text-gray-500">PDF 문서 로딩 중...</div>
@@ -155,7 +117,10 @@ export const EmbedPdfViewer: React.FC<EmbedPdfViewerProps> = ({
           <div className="text-red-500 mb-4 text-lg">❌ PDF 로드 실패</div>
           <div className="text-gray-600 mb-4 text-sm">{error}</div>
           <button
-            onClick={() => setError(null)}
+            onClick={() => {
+              setError(null);
+              setLoading(true);
+            }}
             className="px-4 py-2 bg-blue-500 text-white rounded hover:bg-blue-600 transition-colors"
           >
             다시 시도
@@ -171,19 +136,19 @@ export const EmbedPdfViewer: React.FC<EmbedPdfViewerProps> = ({
       <div className="flex items-center justify-between p-4 border-b bg-gray-50 flex-shrink-0">
         <div className="flex items-center gap-4">
           <button
-            onClick={() => handlePageChange(Math.max(0, currentPage - 2))}
-            disabled={currentPage <= 1}
+            onClick={() => changePage(-1)}
+            disabled={pageNumber <= 1}
             className="px-3 py-1 bg-blue-500 text-white rounded disabled:opacity-50 hover:bg-blue-600 transition-colors"
             title="이전 페이지"
           >
             ← 이전
           </button>
           <span className="text-sm font-medium">
-            페이지 {currentPage} / {totalPages || '?'}
+            페이지 {pageNumber} / {numPages || '?'}
           </span>
           <button
-            onClick={() => handlePageChange(currentPage)}
-            disabled={currentPage >= (totalPages || 1)}
+            onClick={() => changePage(1)}
+            disabled={pageNumber >= numPages}
             className="px-3 py-1 bg-blue-500 text-white rounded disabled:opacity-50 hover:bg-blue-600 transition-colors"
             title="다음 페이지"
           >
@@ -195,43 +160,40 @@ export const EmbedPdfViewer: React.FC<EmbedPdfViewerProps> = ({
           <input
             type="number"
             min="1"
-            max={totalPages || 1}
-            value={currentPage}
-            onChange={(e) => handlePageChange(parseInt(e.target.value) - 1)}
+            max={numPages || 1}
+            value={pageNumber}
+            onChange={(e) => goToPage(parseInt(e.target.value) || 1)}
             className="w-16 px-2 py-1 border rounded text-sm text-center"
           />
           <span className="text-sm text-gray-600">페이지</span>
         </div>
       </div>
 
-      {/* EmbedPDF 뷰어 */}
-      <div className="flex-1 overflow-hidden">
-        <div style={{ height: '100%', position: 'relative' }}>
-          <EmbedPDF engine={engine} plugins={plugins}>
-            <Viewport style={{ backgroundColor: '#f1f3f5', height: '100%' }}>
-              <Scroller
-                renderPage={({ width, height, pageIndex, scale }) => {
-                  // 첫 번째 페이지가 렌더링되면 로딩 완료로 간주
-                  if (pageIndex === 0 && isLoadingPdf) {
-                    console.log('✅ PDF 첫 페이지 렌더링 완료');
-                    setIsLoadingPdf(false);
-                    // 임시로 페이지 수를 설정 (실제로는 문서에서 가져와야 함)
-                    if (totalPages === 0) {
-                      setTotalPages(149); // 임시 값, 실제로는 문서에서 가져와야 함
-                      onDocumentLoad?.(149);
-                    }
-                  }
-                  
-                  return (
-                    <div style={{ width, height, position: 'relative' }}>
-                      <RenderLayer pageIndex={pageIndex} scale={scale} />
-                    </div>
-                  );
-                }}
-              />
-            </Viewport>
-          </EmbedPDF>
-        </div>
+      {/* PDF 뷰어 */}
+      <div className="flex-1 overflow-auto bg-gray-100 p-4 flex items-start justify-center">
+        <Document
+          file={absolutePdfUrl}
+          onLoadSuccess={onDocumentLoadSuccess}
+          onLoadError={onDocumentLoadError}
+          loading={
+            <div className="flex items-center justify-center h-full">
+              <div className="text-gray-500">PDF 로딩 중...</div>
+            </div>
+          }
+          error={
+            <div className="flex items-center justify-center h-full">
+              <div className="text-red-500">PDF 로드 실패</div>
+            </div>
+          }
+        >
+          <Page
+            pageNumber={pageNumber}
+            renderTextLayer={true}
+            renderAnnotationLayer={true}
+            className="shadow-lg"
+            width={window.innerWidth > 768 ? 800 : window.innerWidth - 64}
+          />
+        </Document>
       </div>
     </div>
   );
