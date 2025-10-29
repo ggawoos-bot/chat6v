@@ -1,5 +1,6 @@
 import React, { useState, useEffect, useMemo } from 'react';
-import { EmbedPDF, createPluginRegistration } from '@embedpdf/core/react';
+import { EmbedPDF } from '@embedpdf/core/react';
+import { createPluginRegistration } from '@embedpdf/core';
 import { usePdfiumEngine } from '@embedpdf/engines/react';
 import { ViewportPluginPackage, Viewport } from '@embedpdf/plugin-viewport/react';
 import { ScrollPluginPackage, Scroller } from '@embedpdf/plugin-scroll/react';
