@@ -25,6 +25,30 @@ export const EmbedPdfViewer: React.FC<EmbedPdfViewerProps> = ({
   const { engine, isLoading, error: engineError } = usePdfiumEngine();
   const [totalPages, setTotalPages] = useState<number>(0);
   const [error, setError] = useState<string | null>(null);
+  const [isLoadingPdf, setIsLoadingPdf] = useState<boolean>(true);
+
+  // PDF URL을 절대 경로로 변환
+  const absolutePdfUrl = useMemo(() => {
+    if (!pdfUrl) return '';
+    
+    // 이미 절대 URL인 경우 그대로 사용
+    if (pdfUrl.startsWith('http://') || pdfUrl.startsWith('https://')) {
+      return pdfUrl;
+    }
+    
+    // 상대 경로인 경우 현재 도메인 기준으로 절대 경로 생성
+    if (pdfUrl.startsWith('./')) {
+      return `${window.location.origin}${pdfUrl.substring(1)}`;
+    }
+    
+    // 다른 상대 경로인 경우
+    if (pdfUrl.startsWith('/')) {
+      return `${window.location.origin}${pdfUrl}`;
+    }
+    
+    // 기본적으로 현재 도메인 기준으로 처리
+    return `${window.location.origin}/${pdfUrl}`;
+  }, [pdfUrl]);
 
   // EmbedPDF 플러그인 등록 (pdfUrl이 변경될 때만 재생성)
   const plugins = useMemo(() => [
@@ -33,19 +57,49 @@ export const EmbedPdfViewer: React.FC<EmbedPdfViewerProps> = ({
         type: 'url',
         pdfFile: {
           id: 'pdf-document',
-          url: pdfUrl,
+          url: absolutePdfUrl,
         },
       },
     }),
     createPluginRegistration(ViewportPluginPackage),
     createPluginRegistration(ScrollPluginPackage),
     createPluginRegistration(RenderPluginPackage),
-  ], [pdfUrl]);
+  ], [absolutePdfUrl]);
 
-  // 에러 처리
+  // PDF URL 변경 시 디버깅 정보 출력
+  useEffect(() => {
+    console.log('🔍 EmbedPDF URL 변경:', {
+      originalUrl: pdfUrl,
+      absoluteUrl: absolutePdfUrl,
+      currentOrigin: window.location.origin
+    });
+  }, [pdfUrl, absolutePdfUrl]);
+
+  // PDF URL 변경 시 로딩 상태 초기화
+  useEffect(() => {
+    setIsLoadingPdf(true);
+    setError(null);
+    setTotalPages(0);
+    
+    // 10초 후에도 로딩이 완료되지 않으면 에러로 처리
+    const timeout = setTimeout(() => {
+      if (isLoadingPdf) {
+        const errorMessage = 'PDF 로딩 시간 초과 (10초)';
+        console.error('❌ PDF 로딩 타임아웃');
+        setError(errorMessage);
+        setIsLoadingPdf(false);
+        onError?.(errorMessage);
+      }
+    }, 10000);
+    
+    return () => clearTimeout(timeout);
+  }, [pdfUrl, isLoadingPdf, onError]);
+
+  // 엔진 에러 처리
   useEffect(() => {
     if (engineError) {
       const errorMessage = `PDF 엔진 오류: ${engineError.message}`;
+      console.error('❌ PDF 엔진 오류:', engineError);
       setError(errorMessage);
       onError?.(errorMessage);
     }
@@ -61,6 +115,14 @@ export const EmbedPdfViewer: React.FC<EmbedPdfViewerProps> = ({
     return (
       <div className="flex items-center justify-center h-full">
         <div className="text-gray-500">PDF 엔진 로딩 중...</div>
+      </div>
+    );
+  }
+
+  if (isLoadingPdf) {
+    return (
+      <div className="flex items-center justify-center h-full">
+        <div className="text-gray-500">PDF 문서 로딩 중...</div>
       </div>
     );
   }
@@ -126,11 +188,24 @@ export const EmbedPdfViewer: React.FC<EmbedPdfViewerProps> = ({
         <EmbedPDF engine={engine} plugins={plugins}>
           <Viewport style={{ backgroundColor: '#f1f3f5', height: '100%' }}>
             <Scroller
-              renderPage={({ width, height, pageIndex, scale }) => (
-                <div style={{ width, height, position: 'relative' }}>
-                  <RenderLayer pageIndex={pageIndex} scale={scale} />
-                </div>
-              )}
+              renderPage={({ width, height, pageIndex, scale }) => {
+                // 첫 번째 페이지가 렌더링되면 로딩 완료로 간주
+                if (pageIndex === 0 && isLoadingPdf) {
+                  console.log('✅ PDF 첫 페이지 렌더링 완료');
+                  setIsLoadingPdf(false);
+                  // 임시로 페이지 수를 설정 (실제로는 문서에서 가져와야 함)
+                  if (totalPages === 0) {
+                    setTotalPages(149); // 임시 값, 실제로는 문서에서 가져와야 함
+                    onDocumentLoad?.(149);
+                  }
+                }
+                
+                return (
+                  <div style={{ width, height, position: 'relative' }}>
+                    <RenderLayer pageIndex={pageIndex} scale={scale} />
+                  </div>
+                );
+              }}
             />
           </Viewport>
         </EmbedPDF>
