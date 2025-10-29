@@ -1,9 +1,12 @@
 import React, { useState, useEffect } from 'react';
 import { Document, Page, pdfjs } from 'react-pdf';
+// PDF.js Worker 파일을 로컬에서 직접 import (CDN 대신 로컬 파일 사용)
+import pdfjsWorker from 'pdfjs-dist/build/pdf.worker.min.mjs?url';
 
-// PDF.js Worker 설정
+// PDF.js Worker 설정 (로컬 파일 사용)
 if (typeof window !== 'undefined') {
-  pdfjs.GlobalWorkerOptions.workerSrc = `https://cdnjs.cloudflare.com/ajax/libs/pdf.js/${pdfjs.version}/pdf.worker.min.js`;
+  pdfjs.GlobalWorkerOptions.workerSrc = pdfjsWorker;
+  console.log('📦 PDF.js Worker 로드: 로컬 파일 사용', pdfjsWorker);
 }
 
 interface EmbedPdfViewerProps {
