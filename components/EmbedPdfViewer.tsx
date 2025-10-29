@@ -1,12 +1,6 @@
-import React, { useState } from 'react';
-import { Document, Page, pdfjs } from 'react-pdf';
-
-// react-pdf CSS styles
-import 'react-pdf/dist/Page/AnnotationLayer.css';
-import 'react-pdf/dist/Page/TextLayer.css';
-
-// PDF.js 워커 설정 (로컬 파일 사용)
-pdfjs.GlobalWorkerOptions.workerSrc = './assets/pdf.worker.min.js';
+import React, { useState, useEffect } from 'react';
+import { EmbedPDF } from '@embedpdf/core/react';
+import { usePdfiumEngine } from '@embedpdf/engines/react';
 
 interface EmbedPdfViewerProps {
   pdfUrl: string;
@@ -23,41 +17,57 @@ export const EmbedPdfViewer: React.FC<EmbedPdfViewerProps> = ({
   onDocumentLoad,
   onError
 }) => {
-  const [numPages, setNumPages] = useState<number | null>(null);
-  const [pageNumber, setPageNumber] = useState(currentPage);
-  const [scale, setScale] = useState(1.5);
+  const { engine, isLoading, error: engineError } = usePdfiumEngine();
+  const [totalPages, setTotalPages] = useState<number>(0);
   const [error, setError] = useState<string | null>(null);
 
-  function onDocumentLoadSuccess({ numPages }: { numPages: number }) {
-    console.log(`✅ PDF 로드 완료: ${numPages}페이지`);
-    setNumPages(numPages);
-    onDocumentLoad?.(numPages);
-  }
-
-  function onDocumentLoadError(error: Error) {
-    console.error('PDF 로드 실패:', error);
-    const errorMessage = `PDF 로드 실패: ${error.message}`;
-    setError(errorMessage);
-    onError?.(errorMessage);
-  }
-
-  const handlePageChange = (newPage: number) => {
-    if (newPage >= 1 && newPage <= (numPages || 1)) {
-      setPageNumber(newPage);
-      onPageChange?.(newPage);
+  // PDF 로드 완료 처리
+  useEffect(() => {
+    if (engine && totalPages > 0) {
+      console.log(`✅ EmbedPDF 로드 완료: ${totalPages}페이지`);
+      onDocumentLoad?.(totalPages);
     }
+  }, [engine, totalPages, onDocumentLoad]);
+
+  // 에러 처리
+  useEffect(() => {
+    if (engineError) {
+      const errorMessage = `PDF 엔진 오류: ${engineError.message}`;
+      setError(errorMessage);
+      onError?.(errorMessage);
+    }
+  }, [engineError, onError]);
+
+  // 페이지 변경 처리
+  const handlePageChange = (pageIndex: number) => {
+    const pageNumber = pageIndex + 1; // EmbedPDF는 0-based index 사용
+    onPageChange?.(pageNumber);
   };
 
-  const handleScaleChange = (delta: number) => {
-    setScale((prevScale) => Math.min(Math.max(0.5, prevScale + delta), 3));
-  };
+  if (isLoading || !engine) {
+    return (
+      <div className="flex items-center justify-center h-full">
+        <div className="text-gray-500">PDF 엔진 로딩 중...</div>
+      </div>
+    );
+  }
 
-  // currentPage prop이 변경되면 pageNumber 동기화
-  React.useEffect(() => {
-    if (currentPage !== pageNumber) {
-      setPageNumber(currentPage);
-    }
-  }, [currentPage]);
+  if (error) {
+    return (
+      <div className="flex items-center justify-center h-full">
+        <div className="text-center">
+          <div className="text-red-500 mb-4 text-lg">❌ PDF 로드 실패</div>
+          <div className="text-gray-600 mb-4 text-sm">{error}</div>
+          <button
+            onClick={() => setError(null)}
+            className="px-4 py-2 bg-blue-500 text-white rounded hover:bg-blue-600 transition-colors"
+          >
+            다시 시도
+          </button>
+        </div>
+      </div>
+    );
+  }
 
   return (
     <div className="h-full flex flex-col bg-white">
@@ -65,19 +75,19 @@ export const EmbedPdfViewer: React.FC<EmbedPdfViewerProps> = ({
       <div className="flex items-center justify-between p-4 border-b bg-gray-50 flex-shrink-0">
         <div className="flex items-center gap-4">
           <button
-            onClick={() => handlePageChange(pageNumber - 1)}
-            disabled={pageNumber <= 1}
+            onClick={() => handlePageChange(Math.max(0, currentPage - 2))}
+            disabled={currentPage <= 1}
             className="px-3 py-1 bg-blue-500 text-white rounded disabled:opacity-50 hover:bg-blue-600 transition-colors"
             title="이전 페이지"
           >
             ← 이전
           </button>
           <span className="text-sm font-medium">
-            페이지 {pageNumber} / {numPages || '?'}
+            페이지 {currentPage} / {totalPages || '?'}
           </span>
           <button
-            onClick={() => handlePageChange(pageNumber + 1)}
-            disabled={pageNumber >= (numPages || 1)}
+            onClick={() => handlePageChange(currentPage)}
+            disabled={currentPage >= (totalPages || 1)}
             className="px-3 py-1 bg-blue-500 text-white rounded disabled:opacity-50 hover:bg-blue-600 transition-colors"
             title="다음 페이지"
           >
@@ -85,86 +95,30 @@ export const EmbedPdfViewer: React.FC<EmbedPdfViewerProps> = ({
           </button>
         </div>
         
-        {/* 페이지 입력 및 줌 */}
-        <div className="flex items-center gap-3">
-          <div className="flex items-center gap-2">
-            <button
-              onClick={() => handleScaleChange(-0.1)}
-              className="px-2 py-1 bg-gray-200 rounded hover:bg-gray-300"
-              title="축소"
-            >
-              −
-            </button>
-            <span className="text-sm text-gray-600">{Math.round(scale * 100)}%</span>
-            <button
-              onClick={() => handleScaleChange(0.1)}
-              className="px-2 py-1 bg-gray-200 rounded hover:bg-gray-300"
-              title="확대"
-            >
-              +
-            </button>
-            <button
-              onClick={() => setScale(1.5)}
-              className="px-2 py-1 bg-gray-200 rounded hover:bg-gray-300 text-xs"
-              title="기본 크기"
-            >
-              리셋
-            </button>
-          </div>
-          
-          <div className="flex items-center gap-2">
-            <input
-              type="number"
-              min="1"
-              max={numPages || 1}
-              value={pageNumber}
-              onChange={(e) => handlePageChange(parseInt(e.target.value) || 1)}
-              className="w-16 px-2 py-1 border rounded text-sm text-center"
-            />
-            <span className="text-sm text-gray-600">페이지</span>
-          </div>
+        <div className="flex items-center gap-2">
+          <input
+            type="number"
+            min="1"
+            max={totalPages || 1}
+            value={currentPage}
+            onChange={(e) => handlePageChange(parseInt(e.target.value) - 1)}
+            className="w-16 px-2 py-1 border rounded text-sm text-center"
+          />
+          <span className="text-sm text-gray-600">페이지</span>
         </div>
       </div>
 
-      {/* PDF 뷰어 */}
-      <div className="flex-1 overflow-auto p-4 bg-gray-100">
-        {error ? (
-          <div className="flex items-center justify-center h-full">
-            <div className="text-center">
-              <div className="text-red-500 mb-4 text-lg">❌ PDF 로드 실패</div>
-              <div className="text-gray-600 mb-4 text-sm">{error}</div>
-              <button
-                onClick={() => {
-                  setError(null);
-                  setNumPages(null);
-                }}
-                className="px-4 py-2 bg-blue-500 text-white rounded hover:bg-blue-600 transition-colors"
-              >
-                다시 시도
-              </button>
-            </div>
+      {/* EmbedPDF 뷰어 */}
+      <div className="flex-1 overflow-hidden">
+        <EmbedPDF 
+          engine={engine} 
+          pdfUrl={pdfUrl}
+          style={{ height: '100%', width: '100%' }}
+        >
+          <div style={{ backgroundColor: '#f1f3f5', height: '100%' }}>
+            {/* EmbedPDF 기본 뷰어 - 자체적으로 페이지 렌더링 처리 */}
           </div>
-        ) : (
-          <div className="flex justify-center">
-            <Document
-              file={pdfUrl}
-              onLoadSuccess={onDocumentLoadSuccess}
-              onLoadError={onDocumentLoadError}
-              loading={
-                <div className="flex items-center justify-center h-full">
-                  <div className="text-gray-500">PDF 로딩 중...</div>
-                </div>
-              }
-            >
-              <Page
-                pageNumber={pageNumber}
-                scale={scale}
-                renderTextLayer={true}
-                renderAnnotationLayer={true}
-              />
-            </Document>
-          </div>
-        )}
+        </EmbedPDF>
       </div>
     </div>
   );
