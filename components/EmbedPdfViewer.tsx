@@ -1,6 +1,10 @@
-import React, { useState, useEffect } from 'react';
-import { EmbedPDF } from '@embedpdf/core/react';
+import React, { useState, useEffect, useMemo } from 'react';
+import { EmbedPDF, createPluginRegistration } from '@embedpdf/core/react';
 import { usePdfiumEngine } from '@embedpdf/engines/react';
+import { ViewportPluginPackage, Viewport } from '@embedpdf/plugin-viewport/react';
+import { ScrollPluginPackage, Scroller } from '@embedpdf/plugin-scroll/react';
+import { RenderPluginPackage, RenderLayer } from '@embedpdf/plugin-render/react';
+import { LoaderPluginPackage } from '@embedpdf/plugin-loader/react';
 
 interface EmbedPdfViewerProps {
   pdfUrl: string;
@@ -20,6 +24,22 @@ export const EmbedPdfViewer: React.FC<EmbedPdfViewerProps> = ({
   const { engine, isLoading, error: engineError } = usePdfiumEngine();
   const [totalPages, setTotalPages] = useState<number>(0);
   const [error, setError] = useState<string | null>(null);
+
+  // EmbedPDF 플러그인 등록 (pdfUrl이 변경될 때만 재생성)
+  const plugins = useMemo(() => [
+    createPluginRegistration(LoaderPluginPackage, {
+      loadingOptions: {
+        type: 'url',
+        pdfFile: {
+          id: 'pdf-document',
+          url: pdfUrl,
+        },
+      },
+    }),
+    createPluginRegistration(ViewportPluginPackage),
+    createPluginRegistration(ScrollPluginPackage),
+    createPluginRegistration(RenderPluginPackage),
+  ], [pdfUrl]);
 
   // PDF 로드 완료 처리
   useEffect(() => {
@@ -110,14 +130,16 @@ export const EmbedPdfViewer: React.FC<EmbedPdfViewerProps> = ({
 
       {/* EmbedPDF 뷰어 */}
       <div className="flex-1 overflow-hidden">
-        <EmbedPDF 
-          engine={engine} 
-          pdfUrl={pdfUrl}
-          style={{ height: '100%', width: '100%' }}
-        >
-          <div style={{ backgroundColor: '#f1f3f5', height: '100%' }}>
-            {/* EmbedPDF 기본 뷰어 - 자체적으로 페이지 렌더링 처리 */}
-          </div>
+        <EmbedPDF engine={engine} plugins={plugins}>
+          <Viewport style={{ backgroundColor: '#f1f3f5', height: '100%' }}>
+            <Scroller
+              renderPage={({ width, height, pageIndex, scale }) => (
+                <div style={{ width, height, position: 'relative' }}>
+                  <RenderLayer pageIndex={pageIndex} scale={scale} />
+                </div>
+              )}
+            />
+          </Viewport>
         </EmbedPDF>
       </div>
     </div>
