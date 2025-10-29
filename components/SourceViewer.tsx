@@ -311,7 +311,12 @@ export const SourceViewer: React.FC<SourceViewerProps> = ({
                 텍스트
               </button>
               <button
-                onClick={() => onViewModeChange?.('pdf')}
+                onClick={() => {
+                  console.log('📄 PDF 버튼 클릭됨, 현재 모드:', pdfViewerMode);
+                  console.log('📄 PDF URL:', pdfUrl);
+                  console.log('📄 PDF 파일명:', pdfFilename || document?.filename);
+                  onViewModeChange?.('pdf');
+                }}
                 className={`px-2 py-1 rounded text-xs transition-colors ${
                   pdfViewerMode === 'pdf' 
                     ? 'bg-blue-500 text-white' 

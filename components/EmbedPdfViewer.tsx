@@ -2,7 +2,9 @@ import React, { useState, useEffect } from 'react';
 import { Document, Page, pdfjs } from 'react-pdf';
 
 // PDF.js Worker 설정
-pdfjs.GlobalWorkerOptions.workerSrc = `//cdnjs.cloudflare.com/ajax/libs/pdf.js/${pdfjs.version}/pdf.worker.min.js`;
+if (typeof window !== 'undefined') {
+  pdfjs.GlobalWorkerOptions.workerSrc = `https://cdnjs.cloudflare.com/ajax/libs/pdf.js/${pdfjs.version}/pdf.worker.min.js`;
+}
 
 interface EmbedPdfViewerProps {
   pdfUrl: string;
@@ -26,7 +28,10 @@ export const EmbedPdfViewer: React.FC<EmbedPdfViewerProps> = ({
 
   // PDF URL을 절대 경로로 변환
   const absolutePdfUrl = React.useMemo(() => {
-    if (!pdfUrl) return '';
+    if (!pdfUrl) {
+      console.warn('⚠️ PDF URL이 없습니다:', pdfUrl);
+      return '';
+    }
     
     // 이미 절대 URL인 경우 그대로 사용
     if (pdfUrl.startsWith('http://') || pdfUrl.startsWith('https://')) {
@@ -47,6 +52,21 @@ export const EmbedPdfViewer: React.FC<EmbedPdfViewerProps> = ({
     return `${window.location.origin}/${pdfUrl}`;
   }, [pdfUrl]);
 
+  // PDF URL 변경 시 로딩 상태 초기화
+  useEffect(() => {
+    if (absolutePdfUrl) {
+      console.log('📄 PDF URL 준비:', absolutePdfUrl);
+      setLoading(true);
+      setError(null);
+      setNumPages(0);
+      setPageNumber(currentPage);
+    } else {
+      console.warn('⚠️ PDF URL이 유효하지 않습니다');
+      setLoading(false);
+      setError('PDF URL이 제공되지 않았습니다.');
+    }
+  }, [absolutePdfUrl, currentPage]);
+
   // currentPage가 변경되면 pageNumber 업데이트
   useEffect(() => {
     if (currentPage > 0 && currentPage <= numPages) {
@@ -59,7 +79,7 @@ export const EmbedPdfViewer: React.FC<EmbedPdfViewerProps> = ({
 
   // PDF 로드 성공 처리
   const onDocumentLoadSuccess = ({ numPages }: { numPages: number }) => {
-    console.log(`✅ PDF 로드 성공: ${numPages}페이지`);
+    console.log(`✅ PDF 로드 성공: ${numPages}페이지, URL: ${absolutePdfUrl}`);
     setNumPages(numPages);
     setLoading(false);
     setError(null);
@@ -78,6 +98,7 @@ export const EmbedPdfViewer: React.FC<EmbedPdfViewerProps> = ({
   // PDF 로드 에러 처리
   const onDocumentLoadError = (error: Error) => {
     console.error('❌ PDF 로드 오류:', error);
+    console.error('❌ PDF URL:', absolutePdfUrl);
     const errorMessage = `PDF 로드 실패: ${error.message}`;
     setError(errorMessage);
     setLoading(false);
@@ -169,29 +190,36 @@ export const EmbedPdfViewer: React.FC<EmbedPdfViewerProps> = ({
 
       {/* PDF 뷰어 */}
       <div className="flex-1 overflow-auto bg-gray-100 p-4 flex items-start justify-center">
-        <Document
-          file={absolutePdfUrl}
-          onLoadSuccess={onDocumentLoadSuccess}
-          onLoadError={onDocumentLoadError}
-          loading={
-            <div className="flex items-center justify-center h-full">
-              <div className="text-gray-500">PDF 로딩 중...</div>
-            </div>
-          }
-          error={
-            <div className="flex items-center justify-center h-full">
-              <div className="text-red-500">PDF 로드 실패</div>
-            </div>
-          }
-        >
-          <Page
-            pageNumber={pageNumber}
-            renderTextLayer={true}
-            renderAnnotationLayer={true}
-            className="shadow-lg"
-            width={window.innerWidth > 768 ? 800 : window.innerWidth - 64}
-          />
-        </Document>
+        {absolutePdfUrl ? (
+          <Document
+            key={absolutePdfUrl} // PDF URL이 변경될 때 Document를 완전히 리마운트
+            file={absolutePdfUrl}
+            onLoadSuccess={onDocumentLoadSuccess}
+            onLoadError={onDocumentLoadError}
+            loading={
+              <div className="flex items-center justify-center" style={{ minHeight: '400px' }}>
+                <div className="text-gray-500">PDF 로딩 중...</div>
+              </div>
+            }
+            error={
+              <div className="flex items-center justify-center" style={{ minHeight: '400px' }}>
+                <div className="text-red-500">PDF 로드 실패</div>
+              </div>
+            }
+          >
+            <Page
+              pageNumber={pageNumber}
+              renderTextLayer={true}
+              renderAnnotationLayer={true}
+              className="shadow-lg"
+              width={window.innerWidth > 768 ? 800 : window.innerWidth - 64}
+            />
+          </Document>
+        ) : (
+          <div className="flex items-center justify-center h-full">
+            <div className="text-gray-500">PDF URL이 없습니다.</div>
+          </div>
+        )}
       </div>
     </div>
   );
