@@ -66,14 +66,35 @@ export const EmbedPdfViewer: React.FC<EmbedPdfViewerProps> = ({
     createPluginRegistration(RenderPluginPackage),
   ], [absolutePdfUrl]);
 
-  // PDF URL 변경 시 디버깅 정보 출력
+  // PDF URL 변경 시 디버깅 정보 출력 및 파일 존재 확인
   useEffect(() => {
     console.log('🔍 EmbedPDF URL 변경:', {
       originalUrl: pdfUrl,
       absoluteUrl: absolutePdfUrl,
       currentOrigin: window.location.origin
     });
-  }, [pdfUrl, absolutePdfUrl]);
+    
+    // PDF 파일 존재 여부 확인
+    if (absolutePdfUrl) {
+      fetch(absolutePdfUrl, { method: 'HEAD' })
+        .then(response => {
+          if (response.ok) {
+            console.log('✅ PDF 파일 존재 확인:', absolutePdfUrl);
+          } else {
+            console.error('❌ PDF 파일을 찾을 수 없음:', absolutePdfUrl, response.status);
+            setError(`PDF 파일을 찾을 수 없습니다: ${response.status}`);
+            setIsLoadingPdf(false);
+            onError?.(`PDF 파일을 찾을 수 없습니다: ${response.status}`);
+          }
+        })
+        .catch(error => {
+          console.error('❌ PDF 파일 확인 중 오류:', error);
+          setError(`PDF 파일 확인 중 오류: ${error.message}`);
+          setIsLoadingPdf(false);
+          onError?.(`PDF 파일 확인 중 오류: ${error.message}`);
+        });
+    }
+  }, [pdfUrl, absolutePdfUrl, onError]);
 
   // PDF URL 변경 시 로딩 상태 초기화
   useEffect(() => {
@@ -81,16 +102,16 @@ export const EmbedPdfViewer: React.FC<EmbedPdfViewerProps> = ({
     setError(null);
     setTotalPages(0);
     
-    // 10초 후에도 로딩이 완료되지 않으면 에러로 처리
+    // 30초 후에도 로딩이 완료되지 않으면 에러로 처리
     const timeout = setTimeout(() => {
       if (isLoadingPdf) {
-        const errorMessage = 'PDF 로딩 시간 초과 (10초)';
+        const errorMessage = 'PDF 로딩 시간 초과 (30초)';
         console.error('❌ PDF 로딩 타임아웃');
         setError(errorMessage);
         setIsLoadingPdf(false);
         onError?.(errorMessage);
       }
-    }, 10000);
+    }, 30000);
     
     return () => clearTimeout(timeout);
   }, [pdfUrl, isLoadingPdf, onError]);
@@ -185,30 +206,32 @@ export const EmbedPdfViewer: React.FC<EmbedPdfViewerProps> = ({
 
       {/* EmbedPDF 뷰어 */}
       <div className="flex-1 overflow-hidden">
-        <EmbedPDF engine={engine} plugins={plugins}>
-          <Viewport style={{ backgroundColor: '#f1f3f5', height: '100%' }}>
-            <Scroller
-              renderPage={({ width, height, pageIndex, scale }) => {
-                // 첫 번째 페이지가 렌더링되면 로딩 완료로 간주
-                if (pageIndex === 0 && isLoadingPdf) {
-                  console.log('✅ PDF 첫 페이지 렌더링 완료');
-                  setIsLoadingPdf(false);
-                  // 임시로 페이지 수를 설정 (실제로는 문서에서 가져와야 함)
-                  if (totalPages === 0) {
-                    setTotalPages(149); // 임시 값, 실제로는 문서에서 가져와야 함
-                    onDocumentLoad?.(149);
+        <div style={{ height: '100%', position: 'relative' }}>
+          <EmbedPDF engine={engine} plugins={plugins}>
+            <Viewport style={{ backgroundColor: '#f1f3f5', height: '100%' }}>
+              <Scroller
+                renderPage={({ width, height, pageIndex, scale }) => {
+                  // 첫 번째 페이지가 렌더링되면 로딩 완료로 간주
+                  if (pageIndex === 0 && isLoadingPdf) {
+                    console.log('✅ PDF 첫 페이지 렌더링 완료');
+                    setIsLoadingPdf(false);
+                    // 임시로 페이지 수를 설정 (실제로는 문서에서 가져와야 함)
+                    if (totalPages === 0) {
+                      setTotalPages(149); // 임시 값, 실제로는 문서에서 가져와야 함
+                      onDocumentLoad?.(149);
+                    }
                   }
-                }
-                
-                return (
-                  <div style={{ width, height, position: 'relative' }}>
-                    <RenderLayer pageIndex={pageIndex} scale={scale} />
-                  </div>
-                );
-              }}
-            />
-          </Viewport>
-        </EmbedPDF>
+                  
+                  return (
+                    <div style={{ width, height, position: 'relative' }}>
+                      <RenderLayer pageIndex={pageIndex} scale={scale} />
+                    </div>
+                  );
+                }}
+              />
+            </Viewport>
+          </EmbedPDF>
+        </div>
       </div>
     </div>
   );
