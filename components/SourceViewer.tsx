@@ -31,6 +31,9 @@ export const SourceViewer: React.FC<SourceViewerProps> = ({
   const [document, setDocument] = useState<PDFDocument | null>(null); // ✅ 추가: 문서 정보
   const [searchText, setSearchText] = useState<string>('');
   const [isSearching, setIsSearching] = useState<boolean>(false);
+  const [searchResults, setSearchResults] = useState<PDFChunk[]>([]); // ✅ 추가: 모든 검색 결과
+  const [currentSearchIndex, setCurrentSearchIndex] = useState<number>(-1); // ✅ 추가: 현재 검색 결과 인덱스
+  const [lastSearchQuery, setLastSearchQuery] = useState<string>(''); // ✅ 추가: 마지막 검색어
   const firestoreService = FirestoreService.getInstance();
   const highlightTimeoutRef = useRef<NodeJS.Timeout>();
   const suppressObserverRef = useRef<boolean>(false); // 버튼 클릭 등 프로그램적 이동 시 관찰 억제
@@ -162,38 +165,60 @@ export const SourceViewer: React.FC<SourceViewerProps> = ({
     });
   };
 
+  // 검색 결과로 이동하는 헬퍼 함수
+  const navigateToSearchResult = (match: PDFChunk, index: number) => {
+    // chunksByPage를 사용하여 실제 페이지 번호 찾기
+    let targetPage = 1;
+    for (const [pageNum, pageChunks] of Object.entries(chunksByPage)) {
+      if (pageChunks.some(c => c.id === match.id)) {
+        targetPage = parseInt(pageNum);
+        break;
+      }
+    }
+    
+    if (onPdfPageChange) onPdfPageChange(targetPage);
+    
+    // 페이지 상태 반영 이후 해당 청크로 스크롤
+    setTimeout(() => {
+      const el = window.document.getElementById(`chunk-${match.id}`);
+      if (el) {
+        el.scrollIntoView({ behavior: 'smooth', block: 'center' });
+        // 하이라이트 효과 추가
+        el.classList.add('highlight-animation');
+        setTimeout(() => {
+          el.classList.remove('highlight-animation');
+        }, 2000);
+      }
+    }, 300);
+  };
+
   // 간단 검색: 텍스트 포함 청크를 찾아 해당 페이지로 이동 후 스크롤
   const handleSearchSubmit = async (e?: React.FormEvent) => {
     if (e) e.preventDefault();
     const query = (searchText || '').trim().toLowerCase();
     if (!query || chunks.length === 0) return;
+    
     try {
       setIsSearching(true);
-      // 가장 먼저 매칭되는 청크 찾기
-      const match = chunks.find((c) => (c.content || '').toLowerCase().includes(query));
-      if (match) {
-        // chunksByPage를 사용하여 실제 페이지 번호 찾기
-        let targetPage = 1;
-        for (const [pageNum, pageChunks] of Object.entries(chunksByPage)) {
-          if (pageChunks.some(c => c.id === match.id)) {
-            targetPage = parseInt(pageNum);
-            break;
-          }
-        }
+      
+      // 검색어가 변경되었거나 처음 검색하는 경우
+      if (query !== lastSearchQuery) {
+        // 모든 매칭 청크 찾기
+        const matches = chunks.filter((c) => (c.content || '').toLowerCase().includes(query));
+        setSearchResults(matches);
+        setCurrentSearchIndex(0);
+        setLastSearchQuery(query);
         
-        if (onPdfPageChange) onPdfPageChange(targetPage);
-        // 페이지 상태 반영 이후 해당 청크로 스크롤
-        setTimeout(() => {
-          const el = window.document.getElementById(`chunk-${match.id}`);
-          if (el) {
-            el.scrollIntoView({ behavior: 'smooth', block: 'center' });
-            // 하이라이트 효과 추가
-            el.classList.add('highlight-animation');
-            setTimeout(() => {
-              el.classList.remove('highlight-animation');
-            }, 2000);
-          }
-        }, 300); // 페이지 변경 반영 시간 증가
+        if (matches.length > 0) {
+          navigateToSearchResult(matches[0], 0);
+        }
+      } else {
+        // 같은 검색어로 다음 결과 찾기
+        if (searchResults.length > 0) {
+          const nextIndex = (currentSearchIndex + 1) % searchResults.length; // 순환
+          setCurrentSearchIndex(nextIndex);
+          navigateToSearchResult(searchResults[nextIndex], nextIndex);
+        }
       }
     } finally {
       setIsSearching(false);
@@ -290,15 +315,32 @@ export const SourceViewer: React.FC<SourceViewerProps> = ({
       if (onPdfPageChange) {
         onPdfPageChange(1);
       }
+      // 검색 결과 초기화
+      setSearchResults([]);
+      setCurrentSearchIndex(-1);
+      setLastSearchQuery('');
       loadChunks(selectedDocumentId);
     } else {
       setChunks([]);
       setDocumentTitle('');
+      // 검색 결과 초기화
+      setSearchResults([]);
+      setCurrentSearchIndex(-1);
+      setLastSearchQuery('');
     }
     // onPdfPageChange는 부모에서 매 렌더마다 새로운 함수 참조가 전달될 수 있으므로
     // 의존성에서 제외하여 불필요한 반복 로드를 방지한다.
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [selectedDocumentId]);
+
+  // 검색어 변경 시 검색 결과 초기화 (검색어가 비어있을 때만)
+  useEffect(() => {
+    if (!searchText.trim()) {
+      setSearchResults([]);
+      setCurrentSearchIndex(-1);
+      setLastSearchQuery('');
+    }
+  }, [searchText]);
 
   const loadChunks = async (documentId: string) => {
     setIsLoading(true);
@@ -554,7 +596,7 @@ export const SourceViewer: React.FC<SourceViewerProps> = ({
               className="px-3 py-1.5 bg-brand-primary text-white text-xs rounded disabled:opacity-50"
               title="검색"
             >
-              {isSearching ? '검색중' : '검색'}
+              {isSearching ? '검색중' : searchResults.length > 0 ? `검색 (${currentSearchIndex + 1}/${searchResults.length})` : '검색'}
             </button>
           </form>
 
