@@ -42,12 +42,26 @@ function App() {
   };
 
   useEffect(() => {
+    // 리사이즈 업데이트 rAF 스로틀링
+    let rafId: number | null = null;
+    let pendingWidth: number | null = null;
+
+    const flushWidth = () => {
+      if (pendingWidth !== null) {
+        setSidebarWidth(pendingWidth);
+        pendingWidth = null;
+      }
+      rafId = null;
+    };
+
     const handleResize = (e: MouseEvent) => {
       if (!isResizing) return;
-      
       // 최소 너비: 250px, 최대 너비: 800px (더 작게 조정 가능하게)
       const newWidth = Math.min(Math.max(250, e.clientX), 800);
-      setSidebarWidth(newWidth);
+      pendingWidth = newWidth;
+      if (rafId === null) {
+        rafId = requestAnimationFrame(flushWidth);
+      }
     };
 
     const handleResizeEnd = () => {
@@ -66,6 +80,7 @@ function App() {
       document.removeEventListener('mouseup', handleResizeEnd);
       document.body.style.cursor = '';
       document.body.style.userSelect = '';
+      if (rafId !== null) cancelAnimationFrame(rafId);
     };
   }, [isResizing]);
 
