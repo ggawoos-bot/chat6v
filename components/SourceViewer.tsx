@@ -100,20 +100,6 @@ export const SourceViewer: React.FC<SourceViewerProps> = ({
   
   // 현재 페이지의 청크 추출
   const getPaginatedChunks = () => {
-    // 하이라이트된 청크가 있으면 주변 컨텍스트 포함 (임팩트 존 전략)
-    if (highlightedChunkId && chunks.length > 0) {
-      const highlightedIndex = chunks.findIndex(chunk => chunk.id === highlightedChunkId);
-      
-      if (highlightedIndex !== -1) {
-        // 핵심 청크 ±2개 (총 5개 청크)
-        const contextSize = 2;
-        const start = Math.max(0, highlightedIndex - contextSize);
-        const end = Math.min(chunks.length, highlightedIndex + contextSize + 1);
-        
-        return chunks.slice(start, end);
-      }
-    }
-    
     // ✅ PDF 페이지 번호 기준으로 청크 가져오기
     // pdfCurrentPage는 1부터 시작, 실제 PDF 페이지 번호로 변환
     const targetPageNumber = pdfCurrentPage;
@@ -455,7 +441,7 @@ export const SourceViewer: React.FC<SourceViewerProps> = ({
                 전체 문서 보기
               </button>
             )}
-            {chunks.length > 0 && !highlightedChunkId && (
+            {chunks.length > 0 && (
             <div className="flex items-center gap-2">
               <button
                 onClick={handlePreviousPage}
