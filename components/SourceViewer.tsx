@@ -34,6 +34,7 @@ export const SourceViewer: React.FC<SourceViewerProps> = ({
   const suppressObserverRef = useRef<boolean>(false); // 버튼 클릭 등 프로그램적 이동 시 관찰 억제
   const scrollContainerRef = useRef<HTMLDivElement>(null); // ✅ 텍스트 뷰 스크롤 컨테이너 ref
   const chunkRefs = useRef<{ [key: string]: HTMLDivElement | null }>({}); // ✅ 청크 요소 ref 저장
+  const wheelCooldownRef = useRef<boolean>(false); // 휠로 페이지 이동 쿨다운
   
   // ✅ PDF 페이지 번호로 그룹화
   const chunksByPage = React.useMemo(() => {
@@ -195,6 +196,29 @@ export const SourceViewer: React.FC<SourceViewerProps> = ({
     setTimeout(() => {
       suppressObserverRef.current = false;
     }, 400);
+  };
+
+  // 문서 영역 휠 스크롤 핸들러: 상/하단에서 추가 휠 시 페이지 이동
+  const handleWheelInScrollArea: React.WheelEventHandler<HTMLDivElement> = (e) => {
+    if (pdfViewerMode !== 'text') return; // 텍스트 모드에서만 처리
+    const container = scrollContainerRef.current;
+    if (!container || !onPdfPageChange) return;
+
+    const atTop = container.scrollTop <= 0;
+    const atBottom = Math.ceil(container.scrollTop + container.clientHeight) >= container.scrollHeight;
+
+    // 과도한 연속 페이지 이동 방지
+    if (wheelCooldownRef.current) return;
+
+    if (e.deltaY < 0 && atTop && pdfCurrentPage > 1) {
+      wheelCooldownRef.current = true;
+      handlePreviousPage();
+      setTimeout(() => { wheelCooldownRef.current = false; }, 300);
+    } else if (e.deltaY > 0 && atBottom && pdfCurrentPage < totalPages) {
+      wheelCooldownRef.current = true;
+      handleNextPage();
+      setTimeout(() => { wheelCooldownRef.current = false; }, 300);
+    }
   };
 
   // 선택된 문서의 청크 로드
@@ -522,27 +546,61 @@ export const SourceViewer: React.FC<SourceViewerProps> = ({
         </div>
       </div>
 
-      {/* 컨텐츠 영역 - PDF 뷰어 또는 텍스트 뷰 */}
-      <div className="flex-1 min-h-0 overflow-hidden">
+      {/* 컨텐츠 영역 - 고정 높이 500px, 스크롤 포함 */}
+      <div className="min-h-0 overflow-hidden">
         {pdfViewerMode === 'pdf' ? (
           // EmbedPDF 뷰어
-          <EmbedPdfViewer
-            pdfUrl={pdfUrl}
-            currentPage={pdfCurrentPage}
-            onPageChange={(page) => {
-              onPdfPageChange?.(page);
-            }}
-            onDocumentLoad={(totalPages) => {
-              console.log(`📄 EmbedPDF 로드 완료: ${totalPages}페이지`);
-            }}
-            onError={(error) => {
-              console.error('EmbedPDF 뷰어 오류:', error);
-            }}
-          />
+          <div className="relative h-[500px] overflow-hidden">
+            <EmbedPdfViewer
+              pdfUrl={pdfUrl}
+              currentPage={pdfCurrentPage}
+              onPageChange={(page) => {
+                onPdfPageChange?.(page);
+              }}
+              onDocumentLoad={(totalPages) => {
+                console.log(`📄 EmbedPDF 로드 완료: ${totalPages}페이지`);
+              }}
+              onError={(error) => {
+                console.error('EmbedPDF 뷰어 오류:', error);
+              }}
+            />
+            {/* 페이지 이동 플로팅 버튼 */}
+            <div className="pointer-events-none absolute inset-0 flex flex-col justify-between p-2">
+              <div className="flex justify-end">
+                <button
+                  onClick={handlePreviousPage}
+                  disabled={pdfCurrentPage === 1}
+                  className="pointer-events-auto p-2 rounded bg-white/80 hover:bg-white shadow disabled:opacity-50"
+                  title="이전 페이지"
+                >
+                  <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 19l-7-7 7-7" />
+                  </svg>
+                </button>
+              </div>
+              <div className="flex justify-end">
+                <button
+                  onClick={handleNextPage}
+                  disabled={pdfCurrentPage === totalPages || totalPages <= 1}
+                  className="pointer-events-auto p-2 rounded bg-white/80 hover:bg-white shadow disabled:opacity-50"
+                  title="다음 페이지"
+                >
+                  <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5l7 7-7 7" />
+                  </svg>
+                </button>
+              </div>
+            </div>
+          </div>
         ) : (
           // 텍스트 뷰 (기존 청크 목록)
-          <div ref={scrollContainerRef} className="flex-1 min-h-0 overflow-y-auto p-4">
-            <div className="space-y-4">
+          <div className="relative h-[500px]">
+            <div
+              ref={scrollContainerRef}
+              onWheel={handleWheelInScrollArea}
+              className="h-full overflow-y-auto p-4"
+            >
+              <div className="space-y-4">
               {getPaginatedChunks().map((chunk, index) => {
               const isHighlighted = highlightedChunkId === chunk.id;
               
@@ -603,36 +661,64 @@ export const SourceViewer: React.FC<SourceViewerProps> = ({
               );
             })}
             
-            {/* 주변 페이지 미리보기 */}
-            {getContextualPages() && getContextualPages() && (
-              <div className="border-t border-brand-secondary mt-6 pt-4">
-                <p className="text-xs text-brand-text-secondary mb-2 px-2">
-                  주변 페이지 힌트
-                </p>
-                <div className="space-y-2 overflow-y-auto max-h-40">
-                  {getContextualPages()?.previous && getContextualPages()!.previous.length > 0 && (
-                    <div className="bg-brand-secondary rounded p-2">
-                      <div className="text-xs text-brand-text-secondary font-semibold mb-1">
-                        ← 이전 페이지 ({getContextualPages()!.previous[0].metadata.page}페이지)
+              {/* 주변 페이지 미리보기 */}
+              {getContextualPages() && getContextualPages() && (
+                <div className="border-t border-brand-secondary mt-6 pt-4">
+                  <p className="text-xs text-brand-text-secondary mb-2 px-2">
+                    주변 페이지 힌트
+                  </p>
+                  <div className="space-y-2 overflow-y-auto max-h-40">
+                    {getContextualPages()?.previous && getContextualPages()!.previous.length > 0 && (
+                      <div className="bg-brand-secondary rounded p-2">
+                        <div className="text-xs text-brand-text-secondary font-semibold mb-1">
+                          ← 이전 페이지 ({getContextualPages()!.previous[0].metadata.page}페이지)
+                        </div>
+                        <div className="text-xs text-brand-text-primary line-clamp-2">
+                          {getContextualPages()!.previous[0].content.substring(0, 150)}...
+                        </div>
                       </div>
-                      <div className="text-xs text-brand-text-primary line-clamp-2">
-                        {getContextualPages()!.previous[0].content.substring(0, 150)}...
+                    )}
+                    {getContextualPages()?.next && getContextualPages()!.next.length > 0 && (
+                      <div className="bg-brand-secondary rounded p-2">
+                        <div className="text-xs text-brand-text-secondary font-semibold mb-1">
+                          다음 페이지 → ({getContextualPages()!.next[0].metadata.page}페이지)
+                        </div>
+                        <div className="text-xs text-brand-text-primary line-clamp-2">
+                          {getContextualPages()!.next[0].content.substring(0, 150)}...
+                        </div>
                       </div>
-                    </div>
-                  )}
-                  {getContextualPages()?.next && getContextualPages()!.next.length > 0 && (
-                    <div className="bg-brand-secondary rounded p-2">
-                      <div className="text-xs text-brand-text-secondary font-semibold mb-1">
-                        다음 페이지 → ({getContextualPages()!.next[0].metadata.page}페이지)
-                      </div>
-                      <div className="text-xs text-brand-text-primary line-clamp-2">
-                        {getContextualPages()!.next[0].content.substring(0, 150)}...
-                      </div>
-                    </div>
-                  )}
+                    )}
+                  </div>
                 </div>
+              )}
               </div>
-            )}
+            </div>
+            {/* 페이지 이동 플로팅 버튼 */}
+            <div className="pointer-events-none absolute inset-0 flex flex-col justify-between p-2">
+              <div className="flex justify-end">
+                <button
+                  onClick={handlePreviousPage}
+                  disabled={pdfCurrentPage === 1}
+                  className="pointer-events-auto p-2 rounded bg-white/80 hover:bg-white shadow disabled:opacity-50"
+                  title="이전 페이지"
+                >
+                  <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 19l-7-7 7-7" />
+                  </svg>
+                </button>
+              </div>
+              <div className="flex justify-end">
+                <button
+                  onClick={handleNextPage}
+                  disabled={pdfCurrentPage === totalPages || totalPages <= 1}
+                  className="pointer-events-auto p-2 rounded bg-white/80 hover:bg-white shadow disabled:opacity-50"
+                  title="다음 페이지"
+                >
+                  <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5l7 7-7 7" />
+                  </svg>
+                </button>
+              </div>
             </div>
           </div>
         )}
