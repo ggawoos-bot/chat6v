@@ -31,6 +31,7 @@ export const SourceViewer: React.FC<SourceViewerProps> = ({
   const [document, setDocument] = useState<PDFDocument | null>(null); // ✅ 추가: 문서 정보
   const firestoreService = FirestoreService.getInstance();
   const highlightTimeoutRef = useRef<NodeJS.Timeout>();
+  const suppressObserverRef = useRef<boolean>(false); // 버튼 클릭 등 프로그램적 이동 시 관찰 억제
   const scrollContainerRef = useRef<HTMLDivElement>(null); // ✅ 텍스트 뷰 스크롤 컨테이너 ref
   const chunkRefs = useRef<{ [key: string]: HTMLDivElement | null }>({}); // ✅ 청크 요소 ref 저장
   
@@ -139,13 +140,23 @@ export const SourceViewer: React.FC<SourceViewerProps> = ({
   // 페이지 변경 함수 (pdfCurrentPage 사용)
   const handlePreviousPage = () => {
     if (pdfCurrentPage > 1 && onPdfPageChange) {
+      suppressObserverRef.current = true;
       onPdfPageChange(pdfCurrentPage - 1);
+      // 프로그램적 이동 후 잠시 뒤 관찰 재개
+      setTimeout(() => {
+        suppressObserverRef.current = false;
+      }, 250);
     }
   };
   
   const handleNextPage = () => {
     if (pdfCurrentPage < totalPages && onPdfPageChange) {
+      suppressObserverRef.current = true;
       onPdfPageChange(pdfCurrentPage + 1);
+      // 프로그램적 이동 후 잠시 뒤 관찰 재개
+      setTimeout(() => {
+        suppressObserverRef.current = false;
+      }, 250);
     }
   };
 
@@ -272,6 +283,9 @@ export const SourceViewer: React.FC<SourceViewerProps> = ({
 
     const observer = new IntersectionObserver(
       (entries) => {
+        if (suppressObserverRef.current) {
+          return; // 프로그램적 이동 중에는 관찰 반영 안 함
+        }
         let mostVisibleChunk: PDFChunk | null = null;
         let maxVisibilityRatio = 0;
 
