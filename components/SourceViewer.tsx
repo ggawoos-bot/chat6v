@@ -140,6 +140,24 @@ export const SourceViewer: React.FC<SourceViewerProps> = ({
     };
   };
 
+  // 텍스트에서 검색어를 하이라이트 처리하는 함수
+  const highlightSearchTerm = (text: string, searchTerm: string) => {
+    if (!searchTerm || !text) return text;
+
+    const regex = new RegExp(`(${searchTerm.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')})`, 'gi');
+    const parts = text.split(regex);
+
+    return parts.map((part, index) =>
+      regex.test(part) ? (
+        <span key={index} className="search-highlight bg-yellow-200 text-yellow-900 font-medium px-0.5 rounded">
+          {part}
+        </span>
+      ) : (
+        part
+      )
+    );
+  };
+
   // 간단 검색: 텍스트 포함 청크를 찾아 해당 페이지로 이동 후 스크롤
   const handleSearchSubmit = async (e?: React.FormEvent) => {
     if (e) e.preventDefault();
@@ -502,6 +520,12 @@ export const SourceViewer: React.FC<SourceViewerProps> = ({
               type="text"
               value={searchText}
               onChange={(e) => setSearchText(e.target.value)}
+              onKeyDown={(e) => {
+                if (e.key === 'Enter') {
+                  e.preventDefault();
+                  handleSearchSubmit();
+                }
+              }}
               placeholder="현재 문서에서 검색..."
               className="flex-1 min-w-0 px-3 py-1.5 rounded border border-brand-secondary bg-brand-bg text-sm text-brand-text-primary focus:outline-none focus:border-brand-primary"
             />
@@ -612,7 +636,7 @@ export const SourceViewer: React.FC<SourceViewerProps> = ({
 
                   {/* 청크 내용 */}
                   <div className="text-sm text-brand-text-primary leading-relaxed whitespace-pre-wrap">
-                    {chunk.content}
+                    {searchText.trim() ? highlightSearchTerm(chunk.content, searchText.trim()) : chunk.content}
                   </div>
 
                   {/* 키워드 */}
