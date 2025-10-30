@@ -546,11 +546,11 @@ export const SourceViewer: React.FC<SourceViewerProps> = ({
         </div>
       </div>
 
-      {/* 컨텐츠 영역 - 고정 높이 500px, 스크롤 포함 */}
+      {/* 컨텐츠 영역 - 고정 높이 700px, 스크롤 포함 */}
       <div className="min-h-0 overflow-hidden">
         {pdfViewerMode === 'pdf' ? (
           // EmbedPDF 뷰어
-          <div className="relative h-[500px] overflow-hidden">
+          <div className="relative h-[700px] overflow-hidden">
             <EmbedPdfViewer
               pdfUrl={pdfUrl}
               currentPage={pdfCurrentPage}
@@ -594,7 +594,7 @@ export const SourceViewer: React.FC<SourceViewerProps> = ({
           </div>
         ) : (
           // 텍스트 뷰 (기존 청크 목록)
-          <div className="relative h-[500px]">
+          <div className="relative h-[700px]">
             <div
               ref={scrollContainerRef}
               onWheel={handleWheelInScrollArea}
