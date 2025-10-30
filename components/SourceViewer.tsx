@@ -29,6 +29,8 @@ export const SourceViewer: React.FC<SourceViewerProps> = ({
   const [maxPdfPage, setMaxPdfPage] = useState<number>(0);
   const [documentTotalPages, setDocumentTotalPages] = useState<number>(0); // ✅ 추가: 문서의 실제 총 페이지 수
   const [document, setDocument] = useState<PDFDocument | null>(null); // ✅ 추가: 문서 정보
+  const [searchText, setSearchText] = useState<string>('');
+  const [isSearching, setIsSearching] = useState<boolean>(false);
   const firestoreService = FirestoreService.getInstance();
   const highlightTimeoutRef = useRef<NodeJS.Timeout>();
   const suppressObserverRef = useRef<boolean>(false); // 버튼 클릭 등 프로그램적 이동 시 관찰 억제
@@ -136,6 +138,29 @@ export const SourceViewer: React.FC<SourceViewerProps> = ({
       previous: previousPageChunks,
       next: nextPageChunks
     };
+  };
+
+  // 간단 검색: 텍스트 포함 청크를 찾아 해당 페이지로 이동 후 스크롤
+  const handleSearchSubmit = async (e?: React.FormEvent) => {
+    if (e) e.preventDefault();
+    const query = (searchText || '').trim().toLowerCase();
+    if (!query || chunks.length === 0) return;
+    try {
+      setIsSearching(true);
+      // 가장 먼저 매칭되는 청크 찾기
+      const match = chunks.find((c) => (c.content || '').toLowerCase().includes(query));
+      if (match) {
+        const targetPage = match.metadata?.page || 1;
+        if (onPdfPageChange) onPdfPageChange(targetPage);
+        // 페이지 상태 반영 이후 해당 청크로 스크롤
+        setTimeout(() => {
+          const el = window.document.getElementById(`chunk-${match.id}`);
+          if (el) el.scrollIntoView({ behavior: 'smooth', block: 'start' });
+        }, 150);
+      }
+    } finally {
+      setIsSearching(false);
+    }
   };
   
   // 페이지 변경 함수 (pdfCurrentPage 사용)
@@ -459,7 +484,7 @@ export const SourceViewer: React.FC<SourceViewerProps> = ({
     <div className="flex flex-col h-full bg-brand-surface">
       {/* 헤더 - 고정 */}
       <div className="bg-brand-surface border-b border-brand-secondary px-4 py-3 flex-shrink-0 sticky top-0 z-30">
-        <div className="flex items-center justify-between mb-2">
+        <div className="flex items-center justify-between mb-2 gap-2">
           <h2 className="text-lg font-semibold text-brand-text-primary truncate max-w-[60%]">{documentTitle}</h2>
           <div className="flex items-center gap-2 flex-nowrap">
             {/* 컨텍스트 모드 표시 */}
@@ -470,19 +495,70 @@ export const SourceViewer: React.FC<SourceViewerProps> = ({
             )}
           </div>
         </div>
-        <div className="flex items-center justify-end">
-          {highlightedChunkId && onChunkSelect && (
+        <div className="flex items-center justify-between gap-2">
+          {/* 검색 입력 */}
+          <form onSubmit={handleSearchSubmit} className="flex items-center gap-2 flex-1 min-w-0">
+            <input
+              type="text"
+              value={searchText}
+              onChange={(e) => setSearchText(e.target.value)}
+              placeholder="현재 문서에서 검색..."
+              className="flex-1 min-w-0 px-3 py-1.5 rounded border border-brand-secondary bg-brand-bg text-sm text-brand-text-primary focus:outline-none focus:border-brand-primary"
+            />
             <button
-              onClick={() => {
-                if (onChunkSelect) {
-                  onChunkSelect('');
-                }
-              }}
-              className="px-3 py-1 bg-brand-primary text-white text-xs rounded hover:bg-blue-600 transition-colors"
+              type="submit"
+              disabled={isSearching || !searchText.trim()}
+              className="px-3 py-1.5 bg-brand-primary text-white text-xs rounded disabled:opacity-50"
+              title="검색"
             >
-              전체 문서 보기
+              {isSearching ? '검색중' : '검색'}
             </button>
-          )}
+          </form>
+
+          {/* 페이지 이동 */}
+          <div className="flex items-center gap-1 flex-shrink-0">
+            <button
+              onClick={handlePreviousPage}
+              disabled={pdfCurrentPage <= 1}
+              className="p-1 rounded hover:bg-brand-secondary disabled:opacity-50"
+              title="이전 페이지"
+            >
+              <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 19l-7-7 7-7" />
+              </svg>
+            </button>
+            <input
+              type="number"
+              min={1}
+              max={Math.max(1, totalPages)}
+              value={Math.max(1, pdfCurrentPage)}
+              onChange={(e) => {
+                const v = parseInt(e.target.value || '1', 10);
+                if (onPdfPageChange) onPdfPageChange(Math.min(Math.max(1, v), Math.max(1, totalPages)));
+              }}
+              className="w-16 px-2 py-1 rounded border border-brand-secondary bg-brand-bg text-center text-xs text-brand-text-primary"
+            />
+            <span className="text-xs text-brand-text-secondary px-1">/ {Math.max(1, totalPages)}</span>
+            <button
+              onClick={handleNextPage}
+              disabled={pdfCurrentPage >= totalPages}
+              className="p-1 rounded hover:bg-brand-secondary disabled:opacity-50"
+              title="다음 페이지"
+            >
+              <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5l7 7-7 7" />
+              </svg>
+            </button>
+
+            {highlightedChunkId && onChunkSelect && (
+              <button
+                onClick={() => onChunkSelect && onChunkSelect('')}
+                className="ml-2 px-3 py-1 bg-brand-primary text-white text-xs rounded hover:bg-blue-600"
+              >
+                전체 문서
+              </button>
+            )}
+          </div>
         </div>
       </div>
 
