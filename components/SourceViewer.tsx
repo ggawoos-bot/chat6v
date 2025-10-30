@@ -150,9 +150,25 @@ export const SourceViewer: React.FC<SourceViewerProps> = ({
     }
   };
 
+  // 현재/목표 방향 기준으로 청크가 존재하는 가장 가까운 페이지 찾기
+  const findNearestPageWithChunks = (startPage: number, direction: 'prev' | 'next'): number => {
+    if (chunksByPage[startPage] && chunksByPage[startPage].length > 0) return startPage;
+    if (direction === 'next') {
+      for (let p = startPage + 1; p <= totalPages; p++) {
+        if (chunksByPage[p] && chunksByPage[p].length > 0) return p;
+      }
+    } else {
+      for (let p = startPage - 1; p >= 1; p--) {
+        if (chunksByPage[p] && chunksByPage[p].length > 0) return p;
+      }
+    }
+    return startPage; // fallback
+  };
+
   const handlePreviousPage = () => {
     if (!onPdfPageChange) return;
-    const target = Math.max(1, pdfCurrentPage - 1);
+    const requested = Math.max(1, pdfCurrentPage - 1);
+    const target = findNearestPageWithChunks(requested, 'prev');
     if (target === pdfCurrentPage) return;
     console.log('⏪ prev click: from', pdfCurrentPage, '->', target);
     suppressObserverRef.current = true;
@@ -167,7 +183,8 @@ export const SourceViewer: React.FC<SourceViewerProps> = ({
   
   const handleNextPage = () => {
     if (!onPdfPageChange) return;
-    const target = Math.min(totalPages, pdfCurrentPage + 1);
+    const requested = Math.min(totalPages, pdfCurrentPage + 1);
+    const target = findNearestPageWithChunks(requested, 'next');
     if (target === pdfCurrentPage) return;
     console.log('⏩ next click: from', pdfCurrentPage, '->', target);
     suppressObserverRef.current = true;
