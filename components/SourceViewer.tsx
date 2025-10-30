@@ -376,9 +376,9 @@ export const SourceViewer: React.FC<SourceViewerProps> = ({
   return (
     <div className="flex flex-col h-full bg-brand-surface">
       {/* 헤더 - 고정 */}
-      <div className="bg-brand-surface border-b border-brand-secondary px-4 py-3 flex-shrink-0">
+      <div className="bg-brand-surface border-b border-brand-secondary px-4 py-3 flex-shrink-0 sticky top-0 z-30">
         <div className="flex items-center justify-between mb-2">
-          <h2 className="text-lg font-semibold text-brand-text-primary truncate">{documentTitle}</h2>
+          <h2 className="text-lg font-semibold text-brand-text-primary truncate max-w-[60%]">{documentTitle}</h2>
           <div className="flex items-center gap-2 flex-nowrap">
             {/* 컨텍스트 모드 표시 */}
             {highlightedChunkId && getPaginatedChunks().length > 0 && (
@@ -427,7 +427,7 @@ export const SourceViewer: React.FC<SourceViewerProps> = ({
               <>총 {chunks.length}개 청크</>
             )}
           </p>
-          <div className="flex items-center gap-2">
+          <div className="flex items-center gap-2 flex-nowrap overflow-x-auto whitespace-nowrap">
             {highlightedChunkId && onChunkSelect && (
               <button
                 onClick={() => {
@@ -471,7 +471,7 @@ export const SourceViewer: React.FC<SourceViewerProps> = ({
       </div>
 
       {/* 컨텐츠 영역 - PDF 뷰어 또는 텍스트 뷰 */}
-      <div className="flex-1 overflow-hidden">
+      <div className="flex-1 min-h-0 overflow-hidden">
         {pdfViewerMode === 'pdf' ? (
           // EmbedPDF 뷰어
           <EmbedPdfViewer
@@ -489,7 +489,7 @@ export const SourceViewer: React.FC<SourceViewerProps> = ({
           />
         ) : (
           // 텍스트 뷰 (기존 청크 목록)
-          <div ref={scrollContainerRef} className="flex-1 overflow-y-auto p-4">
+          <div ref={scrollContainerRef} className="flex-1 min-h-0 overflow-y-auto p-4">
             <div className="space-y-4">
               {getPaginatedChunks().map((chunk, index) => {
               const isHighlighted = highlightedChunkId === chunk.id;
