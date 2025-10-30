@@ -144,18 +144,22 @@ export const SourceViewer: React.FC<SourceViewerProps> = ({
   const highlightSearchTerm = (text: string, searchTerm: string) => {
     if (!searchTerm || !text) return text;
 
-    const regex = new RegExp(`(${searchTerm.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')})`, 'gi');
+    // 원본 검색어 사용 (대소문자 구분 안 함)
+    const escapedSearchTerm = searchTerm.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+    const regex = new RegExp(`(${escapedSearchTerm})`, 'gi');
     const parts = text.split(regex);
 
-    return parts.map((part, index) =>
-      regex.test(part) ? (
+    return parts.map((part, index) => {
+      // 각 부분이 검색어와 일치하는지 확인 (대소문자 무시)
+      const isMatch = part.toLowerCase() === searchTerm.toLowerCase();
+      return isMatch ? (
         <span key={index} className="search-highlight bg-yellow-200 text-yellow-900 font-medium px-0.5 rounded">
           {part}
         </span>
       ) : (
         part
-      )
-    );
+      );
+    });
   };
 
   // 간단 검색: 텍스트 포함 청크를 찾아 해당 페이지로 이동 후 스크롤
@@ -168,13 +172,28 @@ export const SourceViewer: React.FC<SourceViewerProps> = ({
       // 가장 먼저 매칭되는 청크 찾기
       const match = chunks.find((c) => (c.content || '').toLowerCase().includes(query));
       if (match) {
-        const targetPage = match.metadata?.page || 1;
+        // chunksByPage를 사용하여 실제 페이지 번호 찾기
+        let targetPage = 1;
+        for (const [pageNum, pageChunks] of Object.entries(chunksByPage)) {
+          if (pageChunks.some(c => c.id === match.id)) {
+            targetPage = parseInt(pageNum);
+            break;
+          }
+        }
+        
         if (onPdfPageChange) onPdfPageChange(targetPage);
         // 페이지 상태 반영 이후 해당 청크로 스크롤
         setTimeout(() => {
           const el = window.document.getElementById(`chunk-${match.id}`);
-          if (el) el.scrollIntoView({ behavior: 'smooth', block: 'start' });
-        }, 150);
+          if (el) {
+            el.scrollIntoView({ behavior: 'smooth', block: 'center' });
+            // 하이라이트 효과 추가
+            el.classList.add('highlight-animation');
+            setTimeout(() => {
+              el.classList.remove('highlight-animation');
+            }, 2000);
+          }
+        }, 300); // 페이지 변경 반영 시간 증가
       }
     } finally {
       setIsSearching(false);
