@@ -233,7 +233,10 @@ export const SourceViewer: React.FC<SourceViewerProps> = ({
       setChunks([]);
       setDocumentTitle('');
     }
-  }, [selectedDocumentId, onPdfPageChange]);
+    // onPdfPageChange는 부모에서 매 렌더마다 새로운 함수 참조가 전달될 수 있으므로
+    // 의존성에서 제외하여 불필요한 반복 로드를 방지한다.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [selectedDocumentId]);
 
   const loadChunks = async (documentId: string) => {
     setIsLoading(true);
@@ -410,17 +413,20 @@ export const SourceViewer: React.FC<SourceViewerProps> = ({
   // ✅ PDF 뷰어 페이지 변경 시 텍스트 뷰 해당 페이지로 스크롤
   useEffect(() => {
     if (pdfViewerMode === 'text' && pdfCurrentPage > 0 && chunks.length > 0) {
-      // 해당 페이지의 첫 번째 청크 찾기
+      // 해당 페이지의 첫 번째 청크로 프로그램적 스크롤 → 관찰 일시 중단
       const pageChunks = chunksByPage[pdfCurrentPage] || [];
       if (pageChunks.length > 0) {
         const firstChunk = pageChunks[0];
+        suppressObserverRef.current = true;
         setTimeout(() => {
           const element = window.document.getElementById(`chunk-${firstChunk.id}`);
           if (element) {
             element.scrollIntoView({ behavior: 'smooth', block: 'start' });
             console.log(`📄 Scrolled to page ${pdfCurrentPage}, chunk: ${firstChunk.id}`);
           }
-        }, 100);
+          // 스크롤 반영 시간 이후 관찰 재개
+          setTimeout(() => { suppressObserverRef.current = false; }, 300);
+        }, 50);
       }
     }
   }, [pdfCurrentPage, pdfViewerMode, chunksByPage, chunks.length]);
