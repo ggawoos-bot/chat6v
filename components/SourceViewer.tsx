@@ -464,54 +464,19 @@ export const SourceViewer: React.FC<SourceViewerProps> = ({
             )}
           </div>
         </div>
-        <div className="flex items-center justify-between">
-          <p className="text-xs text-brand-text-secondary">
-            {maxPdfPage > 0 && pdfCurrentPage > 0 ? (
-              <>PDF {pdfCurrentPage}페이지 (청크 {getPaginatedChunks().length}개)</>
-            ) : (
-              <>총 {chunks.length}개 청크</>
-            )}
-          </p>
-          <div className="flex items-center gap-2 flex-nowrap overflow-x-auto whitespace-nowrap">
-            {highlightedChunkId && onChunkSelect && (
-              <button
-                onClick={() => {
-                  // 전체 문서 모드로 전환 (하이라이트 해제)
-                  if (onChunkSelect) {
-                    onChunkSelect('');
-                  }
-                }}
-                className="px-3 py-1 bg-brand-primary text-white text-xs rounded hover:bg-blue-600 transition-colors"
-              >
-                전체 문서 보기
-              </button>
-            )}
-            <div className="flex items-center gap-2 shrink-0">
-              <button
-                onClick={handlePreviousPage}
-                disabled={pdfCurrentPage === 1}
-                className="p-1 rounded hover:bg-brand-secondary disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
-                title="이전 페이지"
-              >
-                <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 19l-7-7 7-7" />
-                </svg>
-              </button>
-              <span className="text-xs text-brand-text-secondary">
-                {Math.max(1, pdfCurrentPage)} / {Math.max(1, totalPages)}
-              </span>
-              <button
-                onClick={handleNextPage}
-                disabled={pdfCurrentPage === totalPages || totalPages <= 1}
-                className="p-1 rounded hover:bg-brand-secondary disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
-                title="다음 페이지"
-              >
-                <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5l7 7-7 7" />
-                </svg>
-              </button>
-            </div>
-          </div>
+        <div className="flex items-center justify-end">
+          {highlightedChunkId && onChunkSelect && (
+            <button
+              onClick={() => {
+                if (onChunkSelect) {
+                  onChunkSelect('');
+                }
+              }}
+              className="px-3 py-1 bg-brand-primary text-white text-xs rounded hover:bg-blue-600 transition-colors"
+            >
+              전체 문서 보기
+            </button>
+          )}
         </div>
       </div>
 
