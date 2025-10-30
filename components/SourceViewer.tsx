@@ -379,7 +379,7 @@ export const SourceViewer: React.FC<SourceViewerProps> = ({
       <div className="bg-brand-surface border-b border-brand-secondary px-4 py-3 flex-shrink-0">
         <div className="flex items-center justify-between mb-2">
           <h2 className="text-lg font-semibold text-brand-text-primary truncate">{documentTitle}</h2>
-          <div className="flex items-center gap-2">
+          <div className="flex items-center gap-2 flex-nowrap">
             {/* 컨텍스트 모드 표시 */}
             {highlightedChunkId && getPaginatedChunks().length > 0 && (
               <span className="px-2 py-1 bg-yellow-100 text-yellow-800 rounded text-xs whitespace-nowrap">
@@ -441,8 +441,7 @@ export const SourceViewer: React.FC<SourceViewerProps> = ({
                 전체 문서 보기
               </button>
             )}
-            {chunks.length > 0 && (
-            <div className="flex items-center gap-2">
+            <div className="flex items-center gap-2 shrink-0">
               <button
                 onClick={handlePreviousPage}
                 disabled={pdfCurrentPage === 1}
@@ -454,11 +453,11 @@ export const SourceViewer: React.FC<SourceViewerProps> = ({
                 </svg>
               </button>
               <span className="text-xs text-brand-text-secondary">
-                {pdfCurrentPage} / {totalPages}
+                {Math.max(1, pdfCurrentPage)} / {Math.max(1, totalPages)}
               </span>
               <button
                 onClick={handleNextPage}
-                disabled={pdfCurrentPage === totalPages}
+                disabled={pdfCurrentPage === totalPages || totalPages <= 1}
                 className="p-1 rounded hover:bg-brand-secondary disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
                 title="다음 페이지"
               >
@@ -467,7 +466,6 @@ export const SourceViewer: React.FC<SourceViewerProps> = ({
                 </svg>
               </button>
             </div>
-            )}
           </div>
         </div>
       </div>
