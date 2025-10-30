@@ -26,12 +26,13 @@ export const SourceViewer: React.FC<SourceViewerProps> = ({
   const [chunks, setChunks] = useState<PDFChunk[]>([]);
   const [isLoading, setIsLoading] = useState(false);
   const [documentTitle, setDocumentTitle] = useState<string>('');
-  const [currentPage, setCurrentPage] = useState<number>(1);
   const [maxPdfPage, setMaxPdfPage] = useState<number>(0);
   const [documentTotalPages, setDocumentTotalPages] = useState<number>(0); // ✅ 추가: 문서의 실제 총 페이지 수
   const [document, setDocument] = useState<PDFDocument | null>(null); // ✅ 추가: 문서 정보
   const firestoreService = FirestoreService.getInstance();
   const highlightTimeoutRef = useRef<NodeJS.Timeout>();
+  const scrollContainerRef = useRef<HTMLDivElement>(null); // ✅ 텍스트 뷰 스크롤 컨테이너 ref
+  const chunkRefs = useRef<{ [key: string]: HTMLDivElement | null }>({}); // ✅ 청크 요소 ref 저장
   
   // ✅ PDF 페이지 번호로 그룹화
   const chunksByPage = React.useMemo(() => {
@@ -114,8 +115,8 @@ export const SourceViewer: React.FC<SourceViewerProps> = ({
     }
     
     // ✅ PDF 페이지 번호 기준으로 청크 가져오기
-    // currentPage는 1부터 시작, 실제 PDF 페이지 번호로 변환
-    const targetPageNumber = currentPage;
+    // pdfCurrentPage는 1부터 시작, 실제 PDF 페이지 번호로 변환
+    const targetPageNumber = pdfCurrentPage;
     
     // chunksByPage에서 해당 페이지의 청크를 가져옴
     // 페이지에 청크가 없으면 빈 배열 반환
@@ -149,26 +150,32 @@ export const SourceViewer: React.FC<SourceViewerProps> = ({
     };
   };
   
-  // 페이지 변경 함수
+  // 페이지 변경 함수 (pdfCurrentPage 사용)
   const handlePreviousPage = () => {
-    setCurrentPage(prev => Math.max(1, prev - 1));
+    if (pdfCurrentPage > 1 && onPdfPageChange) {
+      onPdfPageChange(pdfCurrentPage - 1);
+    }
   };
   
   const handleNextPage = () => {
-    setCurrentPage(prev => Math.min(totalPages, prev + 1));
+    if (pdfCurrentPage < totalPages && onPdfPageChange) {
+      onPdfPageChange(pdfCurrentPage + 1);
+    }
   };
 
   // 선택된 문서의 청크 로드
   useEffect(() => {
     if (selectedDocumentId) {
-      setCurrentPage(1); // 새 문서 선택 시 첫 페이지로 리셋
+      // 새 문서 선택 시 첫 페이지로 리셋 (pdfCurrentPage는 App.tsx에서 관리)
+      if (onPdfPageChange) {
+        onPdfPageChange(1);
+      }
       loadChunks(selectedDocumentId);
     } else {
       setChunks([]);
       setDocumentTitle('');
-      setCurrentPage(1);
     }
-  }, [selectedDocumentId]);
+  }, [selectedDocumentId, onPdfPageChange]);
 
   const loadChunks = async (documentId: string) => {
     setIsLoading(true);
@@ -223,16 +230,24 @@ export const SourceViewer: React.FC<SourceViewerProps> = ({
   // 하이라이트된 청크로 스크롤 및 페이지 이동
   useEffect(() => {
     if (highlightedChunkId && chunks.length > 0) {
-      // 하이라이트된 청크의 인덱스 찾기
-      const chunkIndex = chunks.findIndex(chunk => chunk.id === highlightedChunkId);
+      // 하이라이트된 청크 찾기
+      const highlightedChunk = chunks.find(chunk => chunk.id === highlightedChunkId);
       
-      if (chunkIndex !== -1) {
-        // 하이라이트가 설정되면 페이지를 1로 리셋 (같은 페이지의 모든 청크 표시)
-        setCurrentPage(1);
+      if (highlightedChunk) {
+        // 청크의 페이지 번호로 pdfCurrentPage 업데이트
+        for (const [pageNum, pageChunks] of Object.entries(chunksByPage)) {
+          if (pageChunks.some(c => c.id === highlightedChunkId)) {
+            const actualPage = parseInt(pageNum);
+            if (actualPage !== pdfCurrentPage && onPdfPageChange) {
+              onPdfPageChange(actualPage);
+            }
+            break;
+          }
+        }
         
         // 페이지 이동 후 하이라이트
         setTimeout(() => {
-          const element = (document as any).getElementById(`chunk-${highlightedChunkId}`);
+          const element = window.document.getElementById(`chunk-${highlightedChunkId}`);
           if (element) {
             // 기존 타이머 정리
             if (highlightTimeoutRef.current) {
@@ -252,13 +267,101 @@ export const SourceViewer: React.FC<SourceViewerProps> = ({
         }, 100);
       }
     }
-  }, [highlightedChunkId, chunks.length]);
+  }, [highlightedChunkId, chunks, chunksByPage, pdfCurrentPage, onPdfPageChange]);
 
   const handleChunkClick = (chunkId: string) => {
     if (onChunkSelect) {
       onChunkSelect(chunkId);
     }
   };
+
+  // ✅ IntersectionObserver를 사용하여 텍스트 뷰 스크롤 시 페이지 감지 및 동기화
+  useEffect(() => {
+    // PDF 뷰어 모드이거나, 페이지 변경 콜백이 없거나, 청크가 없거나, 스크롤 컨테이너가 없으면 관찰하지 않음
+    if (pdfViewerMode === 'pdf' || !onPdfPageChange || chunks.length === 0 || !scrollContainerRef.current) {
+      return;
+    }
+
+    let timeoutId: NodeJS.Timeout | null = null;
+
+    const observer = new IntersectionObserver(
+      (entries) => {
+        let mostVisibleChunk: PDFChunk | null = null;
+        let maxVisibilityRatio = 0;
+
+        entries.forEach((entry) => {
+          if (entry.isIntersecting && entry.intersectionRatio > maxVisibilityRatio) {
+            const chunkId = entry.target.id.replace('chunk-', '');
+            const chunk = chunks.find((c) => c.id === chunkId);
+            if (chunk) {
+              mostVisibleChunk = chunk;
+              maxVisibilityRatio = entry.intersectionRatio;
+            }
+          }
+        });
+
+        // 가장 많이 보이는 청크의 페이지 번호로 pdfCurrentPage 업데이트
+        if (mostVisibleChunk) {
+          for (const [pageNum, pageChunks] of Object.entries(chunksByPage)) {
+            if (pageChunks.some(c => c.id === mostVisibleChunk!.id)) {
+              const actualPage = parseInt(pageNum);
+              // 현재 페이지와 다를 때만 업데이트
+              if (actualPage !== pdfCurrentPage) {
+                // 디바운싱을 적용하여 스크롤 중 과도한 상태 업데이트 방지
+                if (timeoutId) clearTimeout(timeoutId);
+                timeoutId = setTimeout(() => {
+                  onPdfPageChange(actualPage);
+                  console.log(`🔄 Text view scrolled to page: ${actualPage}`);
+                }, 100); // 100ms 디바운스
+              }
+              break;
+            }
+          }
+        }
+      },
+      {
+        root: scrollContainerRef.current, // 스크롤 컨테이너를 root로 지정
+        rootMargin: '0px',
+        threshold: 0.5, // 청크의 50% 이상이 보일 때 감지
+      }
+    );
+
+    // 모든 청크 요소에 대해 관찰 시작 (렌더링 완료 후)
+    const observeChunks = () => {
+      Object.values(chunkRefs.current).forEach((el) => {
+        if (el) observer.observe(el);
+      });
+    };
+    
+    // 렌더링 완료를 기다린 후 관찰 시작
+    requestAnimationFrame(() => {
+      setTimeout(observeChunks, 0);
+    });
+
+    // 컴포넌트 언마운트 시 또는 의존성 변경 시 observer 정리
+    return () => {
+      if (timeoutId) clearTimeout(timeoutId);
+      observer.disconnect();
+    };
+  }, [chunks, chunksByPage, onPdfPageChange, pdfViewerMode, pdfCurrentPage]);
+
+  // ✅ PDF 뷰어 페이지 변경 시 텍스트 뷰 해당 페이지로 스크롤
+  useEffect(() => {
+    if (pdfViewerMode === 'text' && pdfCurrentPage > 0 && chunks.length > 0) {
+      // 해당 페이지의 첫 번째 청크 찾기
+      const pageChunks = chunksByPage[pdfCurrentPage] || [];
+      if (pageChunks.length > 0) {
+        const firstChunk = pageChunks[0];
+        setTimeout(() => {
+          const element = window.document.getElementById(`chunk-${firstChunk.id}`);
+          if (element) {
+            element.scrollIntoView({ behavior: 'smooth', block: 'start' });
+            console.log(`📄 Scrolled to page ${pdfCurrentPage}, chunk: ${firstChunk.id}`);
+          }
+        }, 100);
+      }
+    }
+  }, [pdfCurrentPage, pdfViewerMode, chunksByPage, chunks.length]);
 
   if (!selectedDocumentId) {
     return (
@@ -332,8 +435,8 @@ export const SourceViewer: React.FC<SourceViewerProps> = ({
         </div>
         <div className="flex items-center justify-between">
           <p className="text-xs text-brand-text-secondary">
-            {maxPdfPage > 0 && currentPage > 0 ? (
-              <>PDF {currentPage}페이지 (청크 {getPaginatedChunks().length}개)</>
+            {maxPdfPage > 0 && pdfCurrentPage > 0 ? (
+              <>PDF {pdfCurrentPage}페이지 (청크 {getPaginatedChunks().length}개)</>
             ) : (
               <>총 {chunks.length}개 청크</>
             )}
@@ -356,7 +459,7 @@ export const SourceViewer: React.FC<SourceViewerProps> = ({
             <div className="flex items-center gap-2">
               <button
                 onClick={handlePreviousPage}
-                disabled={currentPage === 1}
+                disabled={pdfCurrentPage === 1}
                 className="p-1 rounded hover:bg-brand-secondary disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
                 title="이전 페이지"
               >
@@ -365,11 +468,11 @@ export const SourceViewer: React.FC<SourceViewerProps> = ({
                 </svg>
               </button>
               <span className="text-xs text-brand-text-secondary">
-                {currentPage} / {totalPages}
+                {pdfCurrentPage} / {totalPages}
               </span>
               <button
                 onClick={handleNextPage}
-                disabled={currentPage === totalPages}
+                disabled={pdfCurrentPage === totalPages}
                 className="p-1 rounded hover:bg-brand-secondary disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
                 title="다음 페이지"
               >
@@ -402,7 +505,7 @@ export const SourceViewer: React.FC<SourceViewerProps> = ({
           />
         ) : (
           // 텍스트 뷰 (기존 청크 목록)
-          <div className="flex-1 overflow-y-auto p-4">
+          <div ref={scrollContainerRef} className="flex-1 overflow-y-auto p-4">
             <div className="space-y-4">
               {getPaginatedChunks().map((chunk, index) => {
               const isHighlighted = highlightedChunkId === chunk.id;
@@ -411,6 +514,7 @@ export const SourceViewer: React.FC<SourceViewerProps> = ({
                 <div
                   key={chunk.id}
                   id={`chunk-${chunk.id}`}
+                  ref={(el) => (chunkRefs.current[chunk.id] = el)} // ✅ ref 할당
                   className={`p-4 rounded-lg border-2 transition-all duration-200 cursor-pointer ${
                     isHighlighted
                       ? 'border-yellow-600 bg-yellow-200 text-gray-900 font-medium highlight-animation shadow-xl'
