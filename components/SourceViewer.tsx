@@ -611,41 +611,13 @@ export const SourceViewer: React.FC<SourceViewerProps> = ({
                           {getContextualPages()!.next[0].content.substring(0, 150)}...
                         </div>
                       </div>
-              )}
+                    )}
             </div>
+          </div>
+          )}
+        </div>
           </div>
         </div>
-              </div>
-            </div>
-            {/* 페이지 이동 플로팅 버튼 */}
-            <div className="pointer-events-none absolute inset-0 flex flex-col justify-between p-2">
-              <div className="flex justify-end">
-                <button
-                  onClick={handlePreviousPage}
-                  disabled={pdfCurrentPage === 1}
-                  className="pointer-events-auto p-2 rounded bg-white/80 hover:bg-white shadow disabled:opacity-50"
-                  title="이전 페이지"
-                >
-                  <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 19l-7-7 7-7" />
-                  </svg>
-                </button>
-              </div>
-              <div className="flex justify-end">
-                <button
-                  onClick={handleNextPage}
-                  disabled={pdfCurrentPage === totalPages || totalPages <= 1}
-                  className="pointer-events-auto p-2 rounded bg-white/80 hover:bg-white shadow disabled:opacity-50"
-                  title="다음 페이지"
-                >
-                  <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5l7 7-7 7" />
-                  </svg>
-                </button>
-              </div>
-            </div>
-          </div>
-        )}
       </div>
     </div>
   );
