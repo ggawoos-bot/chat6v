@@ -260,22 +260,15 @@ body {
   }
 }
 
-/* ✅ 소스 뷰어 하이라이트 애니메이션 - 노란색 */
+/* ✅ 소스 뷰어 하이라이트 - 고대비(글자 선명) */
 .highlight-animation {
-  animation: highlightPulse 2s ease-in-out;
+  background-color: rgba(59, 130, 246, 0.10); /* tailwind blue-500 @ 10% */
+  border-color: #60a5fa; /* blue-400 */
+  box-shadow: 0 0 0 3px rgba(59, 130, 246, 0.25);
 }
-
-@keyframes highlightPulse {
-  0%, 100% {
-    background-color: rgba(253, 224, 71, 0.2);
-    border-color: #fbbf24;
-    box-shadow: 0 0 0 3px rgba(253, 224, 71, 0.3);
-  }
-  50% {
-    background-color: rgba(253, 224, 71, 0.3);
-    border-color: #f59e0b;
-    box-shadow: 0 0 0 4px rgba(253, 224, 71, 0.4);
-  }
+/* 하이라이트 시 내부 텍스트는 어두운 색으로 강제하여 가독성 확보 */
+.highlight-animation, .highlight-animation * {
+  color: #111827 !important; /* gray-900 */
 }
 
 /* ✅ 얇은 스크롤바 스타일 */
