@@ -462,37 +462,6 @@ export const SourceViewer: React.FC<SourceViewerProps> = ({
                 컨텍스트 모드 • {getPaginatedChunks().length}개 항목 표시 중
               </span>
             )}
-            
-            {/* 뷰 모드 전환 버튼 */}
-            <div className="flex items-center gap-1">
-              <button
-                onClick={() => onViewModeChange?.('text')}
-                className={`px-2 py-1 rounded text-xs transition-colors ${
-                  pdfViewerMode === 'text' 
-                    ? 'bg-blue-500 text-white' 
-                    : 'bg-gray-200 text-gray-700 hover:bg-gray-300'
-                }`}
-                title="텍스트 보기"
-              >
-                텍스트
-              </button>
-              <button
-                onClick={() => {
-                  console.log('📄 PDF 버튼 클릭됨, 현재 모드:', pdfViewerMode);
-                  console.log('📄 PDF URL:', pdfUrl);
-                  console.log('📄 PDF 파일명:', pdfFilename || document?.filename);
-                  onViewModeChange?.('pdf');
-                }}
-                className={`px-2 py-1 rounded text-xs transition-colors ${
-                  pdfViewerMode === 'pdf' 
-                    ? 'bg-blue-500 text-white' 
-                    : 'bg-gray-200 text-gray-700 hover:bg-gray-300'
-                }`}
-                title="PDF 보기"
-              >
-                PDF
-              </button>
-            </div>
           </div>
         </div>
         <div className="flex items-center justify-between">
@@ -546,60 +515,15 @@ export const SourceViewer: React.FC<SourceViewerProps> = ({
         </div>
       </div>
 
-      {/* 컨텐츠 영역 - 고정 높이 700px, 스크롤 포함 */}
+      {/* 컨텐츠 영역 - 고정 높이 700px, 스크롤 포함 (텍스트 전용) */}
       <div className="min-h-0 overflow-hidden">
-        {pdfViewerMode === 'pdf' ? (
-          // EmbedPDF 뷰어
-          <div className="relative h-[700px] overflow-hidden">
-            <EmbedPdfViewer
-              pdfUrl={pdfUrl}
-              currentPage={pdfCurrentPage}
-              onPageChange={(page) => {
-                onPdfPageChange?.(page);
-              }}
-              onDocumentLoad={(totalPages) => {
-                console.log(`📄 EmbedPDF 로드 완료: ${totalPages}페이지`);
-              }}
-              onError={(error) => {
-                console.error('EmbedPDF 뷰어 오류:', error);
-              }}
-            />
-            {/* 페이지 이동 플로팅 버튼 */}
-            <div className="pointer-events-none absolute inset-0 flex flex-col justify-between p-2">
-              <div className="flex justify-end">
-                <button
-                  onClick={handlePreviousPage}
-                  disabled={pdfCurrentPage === 1}
-                  className="pointer-events-auto p-2 rounded bg-white/80 hover:bg-white shadow disabled:opacity-50"
-                  title="이전 페이지"
-                >
-                  <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 19l-7-7 7-7" />
-                  </svg>
-                </button>
-              </div>
-              <div className="flex justify-end">
-                <button
-                  onClick={handleNextPage}
-                  disabled={pdfCurrentPage === totalPages || totalPages <= 1}
-                  className="pointer-events-auto p-2 rounded bg-white/80 hover:bg-white shadow disabled:opacity-50"
-                  title="다음 페이지"
-                >
-                  <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5l7 7-7 7" />
-                  </svg>
-                </button>
-              </div>
-            </div>
-          </div>
-        ) : (
-          // 텍스트 뷰 (기존 청크 목록)
-          <div className="relative h-[700px]">
-            <div
-              ref={scrollContainerRef}
-              onWheel={handleWheelInScrollArea}
-              className="h-full overflow-y-auto p-4"
-            >
+        {/* 텍스트 뷰 (청크 목록) */}
+        <div className="relative h-[700px]">
+          <div
+            ref={scrollContainerRef}
+            onWheel={handleWheelInScrollArea}
+            className="h-full overflow-y-auto p-4"
+          >
               <div className="space-y-4">
               {getPaginatedChunks().map((chunk, index) => {
               const isHighlighted = highlightedChunkId === chunk.id;
@@ -687,10 +611,10 @@ export const SourceViewer: React.FC<SourceViewerProps> = ({
                           {getContextualPages()!.next[0].content.substring(0, 150)}...
                         </div>
                       </div>
-                    )}
-                  </div>
-                </div>
               )}
+            </div>
+          </div>
+        </div>
               </div>
             </div>
             {/* 페이지 이동 플로팅 버튼 */}
