@@ -138,26 +138,46 @@ export const SourceViewer: React.FC<SourceViewerProps> = ({
   };
   
   // 페이지 변경 함수 (pdfCurrentPage 사용)
-  const handlePreviousPage = () => {
-    if (pdfCurrentPage > 1 && onPdfPageChange) {
-      suppressObserverRef.current = true;
-      onPdfPageChange(pdfCurrentPage - 1);
-      // 프로그램적 이동 후 잠시 뒤 관찰 재개
-      setTimeout(() => {
-        suppressObserverRef.current = false;
-      }, 250);
+  // 대상 페이지의 첫 번째 청크로 스크롤
+  const scrollToPageFirstChunk = (page: number) => {
+    const pageChunks = chunksByPage[page] || [];
+    const firstChunk = pageChunks[0];
+    if (firstChunk) {
+      const el = window.document.getElementById(`chunk-${firstChunk.id}`);
+      if (el) {
+        el.scrollIntoView({ behavior: 'smooth', block: 'start' });
+      }
     }
+  };
+
+  const handlePreviousPage = () => {
+    if (!onPdfPageChange) return;
+    const target = Math.max(1, pdfCurrentPage - 1);
+    if (target === pdfCurrentPage) return;
+    console.log('⏪ prev click: from', pdfCurrentPage, '->', target);
+    suppressObserverRef.current = true;
+    onPdfPageChange(target);
+    // 프로그램적 이동 즉시 해당 페이지 첫 청크로 스크롤
+    setTimeout(() => scrollToPageFirstChunk(target), 0);
+    // 스크롤 반영 시간이 지나면 관찰 재개
+    setTimeout(() => {
+      suppressObserverRef.current = false;
+    }, 400);
   };
   
   const handleNextPage = () => {
-    if (pdfCurrentPage < totalPages && onPdfPageChange) {
-      suppressObserverRef.current = true;
-      onPdfPageChange(pdfCurrentPage + 1);
-      // 프로그램적 이동 후 잠시 뒤 관찰 재개
-      setTimeout(() => {
-        suppressObserverRef.current = false;
-      }, 250);
-    }
+    if (!onPdfPageChange) return;
+    const target = Math.min(totalPages, pdfCurrentPage + 1);
+    if (target === pdfCurrentPage) return;
+    console.log('⏩ next click: from', pdfCurrentPage, '->', target);
+    suppressObserverRef.current = true;
+    onPdfPageChange(target);
+    // 프로그램적 이동 즉시 해당 페이지 첫 청크로 스크롤
+    setTimeout(() => scrollToPageFirstChunk(target), 0);
+    // 스크롤 반영 시간이 지나면 관찰 재개
+    setTimeout(() => {
+      suppressObserverRef.current = false;
+    }, 400);
   };
 
   // 선택된 문서의 청크 로드
@@ -284,7 +304,8 @@ export const SourceViewer: React.FC<SourceViewerProps> = ({
     const observer = new IntersectionObserver(
       (entries) => {
         if (suppressObserverRef.current) {
-          return; // 프로그램적 이동 중에는 관찰 반영 안 함
+          // 프로그램적 이동 중에는 관찰 반영 안 함
+          return;
         }
         let mostVisibleChunk: PDFChunk | null = null;
         let maxVisibilityRatio = 0;
