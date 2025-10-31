@@ -165,14 +165,56 @@ export const SourceViewer: React.FC<SourceViewerProps> = ({
     });
   };
 
-  // ✅ 공백 정규화 함수: 줄 내부의 공백만 정규화하고 줄바꿈은 유지
+  // ✅ 공백 정규화 함수: 명확한 문단/항목 구분만 유지, 나머지는 공백으로
   const normalizeWhitespace = (text: string): string => {
     if (!text) return text;
-    // 줄바꿈으로 분리한 후, 각 줄 내부의 공백과 탭만 정규화
-    // 줄바꿈은 유지하여 PDF처럼 읽기 쉽게 표시
-    return text.split('\n')
-               .map(line => line.replace(/[ \t]+/g, ' ').trim())
-               .join('\n');
+    
+    // 각 줄 내부의 공백과 탭 정규화
+    const lines = text.split('\n').map(line => line.replace(/[ \t]+/g, ' ').trim());
+    
+    const result: string[] = [];
+    
+    for (let i = 0; i < lines.length; i++) {
+      const line = lines[i];
+      const nextLine = lines[i + 1];
+      
+      // 1. 빈 줄은 항상 유지 (문단 구분)
+      if (line === '') {
+        result.push('');
+        continue;
+      }
+      
+      // 2. 명확한 새 항목 패턴이면 줄바꿈 유지
+      // 숫자, 한자 숫자, 불릿(•, ·), 하이픈(-), 제목(■, ○), 질문(Q.), "제N조" 패턴, 번호(1), 2) 등
+      const isNewItem = /^[\d①②③④⑤⑥⑦⑧⑨⑩·\-\•■○]/.test(line) || 
+                       /^제\d+[조항호의]/.test(line) ||
+                       /^\d+[\.\）\)]/.test(line) ||
+                       /^Q\./.test(line) ||
+                       /^[A-Z가-힣]{2,}\s*$/.test(line); // 제목(2글자 이상 한글/영문만)
+      
+      // 3. 다음 줄이 없거나 빈 줄이면 줄바꿈 유지
+      if (!nextLine || nextLine === '' || isNewItem) {
+        result.push(line);
+        continue;
+      }
+      
+      // 4. 다음 줄이 새 항목이면 줄바꿈 유지
+      const nextIsNewItem = /^[\d①②③④⑤⑥⑦⑧⑨⑩·\-\•■○]/.test(nextLine) || 
+                            /^제\d+[조항호의]/.test(nextLine) ||
+                            /^\d+[\.\）\)]/.test(nextLine) ||
+                            /^Q\./.test(nextLine) ||
+                            /^[A-Z가-힣]{2,}\s*$/.test(nextLine);
+      
+      if (nextIsNewItem) {
+        result.push(line);
+        continue;
+      }
+      
+      // 5. 그 외는 모두 공백으로 연결 (문장 중간 줄바꿈으로 판단)
+      result.push(line + ' ');
+    }
+    
+    return result.join('\n');
   };
 
   // 검색 결과로 이동하는 헬퍼 함수
