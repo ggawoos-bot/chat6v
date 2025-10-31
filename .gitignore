@@ -6,6 +6,7 @@ yarn-error.log*
 
 # Build outputs
 dist/
+!dist/index.html
 build/
 
 # Environment variables
