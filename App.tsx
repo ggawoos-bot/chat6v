@@ -381,7 +381,7 @@ function App() {
               </div>
             </div>
             
-            <div className="flex gap-2">
+            <div className="flex gap-2 mr-16">
               {/* 고급 검색 테스트 버튼 숨김 */}
               {false && (
                 <button
