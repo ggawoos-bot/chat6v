@@ -285,11 +285,41 @@ function App() {
       if (e.key === 'Escape' && selectedDocumentId) {
         setSelectedDocumentId(undefined);
         setHighlightedChunkId(undefined);
+        setQuestionContent(''); // ✅ 질문 내용도 초기화
         console.log('ESC 키로 소스 뷰어 닫기');
       }
     };
     window.addEventListener('keydown', handleEscape);
     return () => window.removeEventListener('keydown', handleEscape);
+  }, [selectedDocumentId]);
+
+  // ✅ 브라우저 뒤로가기 버튼으로 소스 뷰어 닫기
+  useEffect(() => {
+    // 문서가 선택될 때마다 히스토리 엔트리 추가
+    if (selectedDocumentId) {
+      // 이미 추가된 경우 중복 방지
+      const currentState = window.history.state;
+      if (!currentState || !currentState.hasDocumentViewer) {
+        window.history.pushState({ hasDocumentViewer: true }, '', window.location.href);
+      }
+    }
+  }, [selectedDocumentId]);
+
+  // ✅ popstate 이벤트 감지 (브라우저 뒤로가기)
+  useEffect(() => {
+    const handlePopState = (event: PopStateEvent) => {
+      // 문서 뷰어가 열려있을 때 뒤로가기를 누르면 문서 선택 해제
+      if (selectedDocumentId) {
+        // 브라우저 뒤로가기 기본 동작을 막지 않고, 상태만 업데이트
+        setSelectedDocumentId(undefined);
+        setHighlightedChunkId(undefined);
+        setQuestionContent(''); // ✅ 질문 내용도 초기화
+        console.log('브라우저 뒤로가기로 소스 뷰어 닫기');
+      }
+    };
+
+    window.addEventListener('popstate', handlePopState);
+    return () => window.removeEventListener('popstate', handlePopState);
   }, [selectedDocumentId]);
 
   if (isInitializing) {
