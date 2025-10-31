@@ -665,12 +665,11 @@ export const SourceViewer: React.FC<SourceViewerProps> = ({
                   key={chunk.id}
                   id={`chunk-${chunk.id}`}
                   ref={(el) => (chunkRefs.current[chunk.id] = el)} // ✅ ref 할당
-                  className={`p-4 rounded-lg border-2 transition-all duration-200 cursor-pointer ${
+                  className={`p-4 rounded-lg border-2 transition-all duration-200 ${
                     isHighlighted
                       ? 'border-yellow-600 bg-yellow-200 text-gray-900 font-medium highlight-animation shadow-xl'
                       : 'border-brand-secondary bg-brand-surface hover:border-brand-primary hover:shadow-sm'
                   }`}
-                  onClick={() => handleChunkClick(chunk.id)}
                 >
                   {/* 메타데이터 */}
                   <div className="flex items-center gap-2 text-xs text-brand-text-secondary mb-2">
