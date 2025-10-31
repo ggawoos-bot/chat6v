@@ -176,20 +176,62 @@ export const SourceViewer: React.FC<SourceViewerProps> = ({
       }
     }
     
+    // 페이지 변경 시 suppressObserverRef 설정
+    suppressObserverRef.current = true;
     if (onPdfPageChange) onPdfPageChange(targetPage);
     
-    // 페이지 상태 반영 이후 해당 청크로 스크롤
-    setTimeout(() => {
+    // 페이지 변경 후 DOM 업데이트를 기다린 후 스크롤
+    const scrollToMatch = () => {
       const el = window.document.getElementById(`chunk-${match.id}`);
-      if (el) {
-        el.scrollIntoView({ behavior: 'smooth', block: 'center' });
+      const container = scrollContainerRef.current;
+      
+      if (el && container) {
+        // 스크롤 컨테이너 내에서 요소의 위치 계산
+        const containerRect = container.getBoundingClientRect();
+        const elementRect = el.getBoundingClientRect();
+        const scrollTop = container.scrollTop;
+        
+        // 요소가 컨테이너의 중앙에 오도록 스크롤 계산
+        const targetScrollTop = scrollTop + elementRect.top - containerRect.top - (containerRect.height / 2) + (elementRect.height / 2);
+        
+        // 부드럽게 스크롤
+        container.scrollTo({
+          top: targetScrollTop,
+          behavior: 'smooth'
+        });
+        
         // 하이라이트 효과 추가
         el.classList.add('highlight-animation');
         setTimeout(() => {
           el.classList.remove('highlight-animation');
         }, 2000);
+        
+        // 스크롤 완료 후 observer 재개
+        setTimeout(() => {
+          suppressObserverRef.current = false;
+        }, 500);
+      } else if (el) {
+        // scrollContainerRef가 없으면 기본 방법 사용
+        el.scrollIntoView({ behavior: 'smooth', block: 'center' });
+        el.classList.add('highlight-animation');
+        setTimeout(() => {
+          el.classList.remove('highlight-animation');
+          suppressObserverRef.current = false;
+        }, 2000);
       }
-    }, 300);
+    };
+    
+    // 페이지 변경 후 충분한 시간을 기다려서 DOM이 업데이트되도록 함
+    setTimeout(() => {
+      scrollToMatch();
+      // 만약 첫 번째 시도에서 요소를 찾지 못하면 추가 시도
+      setTimeout(() => {
+        const el = window.document.getElementById(`chunk-${match.id}`);
+        if (el && scrollContainerRef.current) {
+          scrollToMatch();
+        }
+      }, 200);
+    }, 400);
   };
 
   // 간단 검색: 텍스트 포함 청크를 찾아 해당 페이지로 이동 후 스크롤
