@@ -165,6 +165,14 @@ export const SourceViewer: React.FC<SourceViewerProps> = ({
     });
   };
 
+  // ✅ 공백 정규화 함수: 모든 공백 문자를 단일 스페이스로 통일
+  const normalizeWhitespace = (text: string): string => {
+    if (!text) return text;
+    // 모든 종류의 공백 문자(스페이스, 탭, 줄바꿈 등)를 하나 이상의 연속된 패턴으로 찾아 단일 스페이스로 대체
+    // 줄바꿈은 단일 스페이스로 변환
+    return text.replace(/\s+/g, ' ').trim();
+  };
+
   // 검색 결과로 이동하는 헬퍼 함수
   const navigateToSearchResult = (match: PDFChunk, index: number) => {
     // chunksByPage를 사용하여 실제 페이지 번호 찾기
@@ -722,10 +730,12 @@ export const SourceViewer: React.FC<SourceViewerProps> = ({
                   </div>
 
                   {/* 청크 내용 */}
-                  <div className={`text-sm leading-relaxed whitespace-pre-wrap ${
+                  <div className={`text-sm leading-relaxed ${
                     isHighlighted ? 'text-brand-primary font-medium' : 'text-brand-text-primary'
                   }`}>
-                    {searchText.trim() ? highlightSearchTerm(chunk.content, searchText.trim()) : chunk.content}
+                    {searchText.trim()
+                      ? highlightSearchTerm(normalizeWhitespace(chunk.content), searchText.trim())
+                      : normalizeWhitespace(chunk.content)}
                   </div>
 
                   {/* 키워드 */}
