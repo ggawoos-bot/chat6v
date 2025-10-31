@@ -9,11 +9,23 @@ import { fileURLToPath } from 'url';
 import { initializeApp } from 'firebase/app';
 import { getFirestore, collection, addDoc, writeBatch, Timestamp, query, where, getDocs, deleteDoc, doc } from 'firebase/firestore';
 import { createRequire } from 'module';
-const require = createRequire(import.meta.url);
-const pdfParse = require('pdf-parse');
+import dotenv from 'dotenv';
 
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
+
+// .env.local 파일 로드 (우선순위 높음, 먼저 로드)
+const envLocalPath = path.resolve(__dirname, '..', '.env.local');
+if (fs.existsSync(envLocalPath)) {
+  dotenv.config({ path: envLocalPath });
+  console.log('✅ .env.local 파일 로드 완료');
+}
+
+// .env 파일 로드 (기본값, .env.local이 없을 때 사용)
+dotenv.config();
+
+const require = createRequire(import.meta.url);
+const pdfParse = require('pdf-parse');
 
 // ✅ 동의어 사전 로드
 let synonymDictionary = null;
@@ -44,6 +56,12 @@ const firebaseConfig = {
 const app = initializeApp(firebaseConfig);
 const db = getFirestore(app);
 
+// SSL/TLS 인증서 검증 설정 (개발 환경용)
+if (process.env.NODE_TLS_REJECT_UNAUTHORIZED === '0') {
+  process.env.NODE_TLS_REJECT_UNAUTHORIZED = '0';
+  console.log('⚠️ SSL 인증서 검증이 비활성화되었습니다. (개발 환경 전용)');
+}
+
 // GitHub Actions 환경 감지
 const isGitHubActions = process.env.GITHUB_ACTIONS === 'true';
 const forceReprocess = process.env.FORCE_REPROCESS === 'true';
@@ -52,6 +70,7 @@ console.log(`🔧 환경 설정:`);
 console.log(`  GitHub Actions: ${isGitHubActions}`);
 console.log(`  강제 재처리: ${forceReprocess}`);
 console.log(`  Node.js 환경: ${process.env.NODE_ENV || 'development'}`);
+console.log(`  SSL 검증: ${process.env.NODE_TLS_REJECT_UNAUTHORIZED === '0' ? '비활성화' : '활성화'}`);
 
 // 메모리 사용량 모니터링
 function getMemoryUsage() {
@@ -112,27 +131,53 @@ async function clearAllExistingData() {
     } else {
       console.log(`  📦 기존 청크 삭제 중: ${allChunksSnapshot.docs.length}개`);
       
-      // WriteBatch로 일괄 삭제 (500개씩)
-      const batchSize = 500;
+      // WriteBatch로 일괄 삭제 (100개씩, 트랜잭션 크기 제한 방지)
+      const batchSize = 100;
+      const maxRetries = 3;
       const chunks = allChunksSnapshot.docs;
       let deletedChunks = 0;
       
       for (let i = 0; i < chunks.length; i += batchSize) {
-        const batch = writeBatch(db);
         const batchChunks = chunks.slice(i, i + batchSize);
+        let success = false;
+        let retryCount = 0;
         
-        batchChunks.forEach(chunkDoc => {
-          batch.delete(chunkDoc.ref);
-        });
+        // 재시도 로직
+        while (!success && retryCount < maxRetries) {
+          try {
+            const batch = writeBatch(db);
+            
+            batchChunks.forEach(chunkDoc => {
+              batch.delete(chunkDoc.ref);
+            });
+            
+            await batch.commit();
+            deletedChunks += batchChunks.length;
+            success = true;
+            
+            const progress = ((deletedChunks / chunks.length) * 100).toFixed(1);
+            console.log(`  ✓ 청크 삭제 완료: ${deletedChunks}/${chunks.length}개 (${progress}%)`);
+            
+          } catch (error) {
+            retryCount++;
+            if (retryCount >= maxRetries) {
+              console.error(`  ❌ 배치 삭제 실패 (${i}-${Math.min(i + batchSize, chunks.length)}):`, error.message);
+              throw error;
+            } else {
+              const delay = 1000 * retryCount; // 지수 백오프: 1초, 2초, 3초
+              console.warn(`  ⚠️ 삭제 실패, ${delay}ms 후 재시도 (${retryCount}/${maxRetries})...`);
+              await new Promise(resolve => setTimeout(resolve, delay));
+            }
+          }
+        }
         
-        await batch.commit();
-        deletedChunks += batchChunks.length;
+        // 배치 사이에 딜레이 추가 (API 제한 및 트랜잭션 부하 방지)
+        if (i + batchSize < chunks.length) {
+          await new Promise(resolve => setTimeout(resolve, 200));
+        }
         
-        const progress = ((deletedChunks / chunks.length) * 100).toFixed(1);
-        console.log(`  ✓ 청크 삭제 완료: ${deletedChunks}/${chunks.length}개 (${progress}%)`);
-        
-        // 메모리 정리 (매 1000개마다)
-        if (deletedChunks % 1000 === 0 && global.gc) {
+        // 메모리 정리 (매 500개마다)
+        if (deletedChunks % 500 === 0 && global.gc) {
           global.gc();
         }
       }
@@ -150,13 +195,53 @@ async function clearAllExistingData() {
     } else {
       console.log(`  📄 기존 문서 삭제 중: ${allDocsSnapshot.docs.length}개`);
       
-      const batch = writeBatch(db);
-      allDocsSnapshot.docs.forEach(docSnapshot => {
-        batch.delete(docSnapshot.ref);
-      });
+      // 문서도 배치로 삭제 (안전하게)
+      const docBatchSize = 100;
+      const maxRetries = 3;
+      const documents = allDocsSnapshot.docs;
+      let deletedDocs = 0;
       
-      await batch.commit();
-      console.log(`  ✅ 문서 삭제 완료: ${allDocsSnapshot.docs.length}개`);
+      for (let i = 0; i < documents.length; i += docBatchSize) {
+        const batchDocs = documents.slice(i, i + docBatchSize);
+        let success = false;
+        let retryCount = 0;
+        
+        // 재시도 로직
+        while (!success && retryCount < maxRetries) {
+          try {
+            const batch = writeBatch(db);
+            
+            batchDocs.forEach(docSnapshot => {
+              batch.delete(docSnapshot.ref);
+            });
+            
+            await batch.commit();
+            deletedDocs += batchDocs.length;
+            success = true;
+            
+            const progress = ((deletedDocs / documents.length) * 100).toFixed(1);
+            console.log(`  ✓ 문서 삭제 진행: ${deletedDocs}/${documents.length}개 (${progress}%)`);
+            
+          } catch (error) {
+            retryCount++;
+            if (retryCount >= maxRetries) {
+              console.error(`  ❌ 문서 배치 삭제 실패 (${i}-${Math.min(i + docBatchSize, documents.length)}):`, error.message);
+              throw error;
+            } else {
+              const delay = 1000 * retryCount;
+              console.warn(`  ⚠️ 문서 삭제 실패, ${delay}ms 후 재시도 (${retryCount}/${maxRetries})...`);
+              await new Promise(resolve => setTimeout(resolve, delay));
+            }
+          }
+        }
+        
+        // 배치 사이에 딜레이 추가
+        if (i + docBatchSize < documents.length) {
+          await new Promise(resolve => setTimeout(resolve, 200));
+        }
+      }
+      
+      console.log(`  ✅ 문서 삭제 완료: ${deletedDocs}개`);
     }
     
     const endTime = Date.now();

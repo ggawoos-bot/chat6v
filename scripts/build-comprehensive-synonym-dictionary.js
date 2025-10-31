@@ -9,6 +9,29 @@ import { fileURLToPath } from 'url';
 import { createRequire } from 'module';
 import { initializeApp } from 'firebase/app';
 import { getFirestore, collection, query, getDocs } from 'firebase/firestore';
+import dotenv from 'dotenv';
+
+const __filename = fileURLToPath(import.meta.url);
+const __dirname = path.dirname(__filename);
+
+// .env.local 파일 로드 (우선순위 높음, 먼저 로드)
+const envLocalPath = path.resolve(__dirname, '..', '.env.local');
+if (fs.existsSync(envLocalPath)) {
+  dotenv.config({ path: envLocalPath });
+  console.log('✅ .env.local 파일 로드 완료');
+}
+
+// .env 파일 로드 (기본값, .env.local이 없을 때 사용)
+dotenv.config();
+
+// 디버깅: 환경변수 확인
+if (process.env.VITE_GEMINI_API_KEY) {
+  console.log('✅ VITE_GEMINI_API_KEY 환경변수 확인됨');
+} else if (process.env.GEMINI_API_KEY) {
+  console.log('✅ GEMINI_API_KEY 환경변수 확인됨');
+} else {
+  console.warn('⚠️ GEMINI_API_KEY 또는 VITE_GEMINI_API_KEY를 찾을 수 없습니다.');
+}
 
 const require = createRequire(import.meta.url);
 const { GoogleGenerativeAI } = require('@google/generative-ai');
@@ -27,14 +50,12 @@ const firebaseConfig = {
 const app = initializeApp(firebaseConfig);
 const db = getFirestore(app);
 
-const __filename = fileURLToPath(import.meta.url);
-const __dirname = path.dirname(__filename);
-
 class AdvancedKeywordExtractor {
   constructor() {
-    const apiKey = process.env.GEMINI_API_KEY;
+    // GEMINI_API_KEY 또는 VITE_GEMINI_API_KEY 둘 다 확인
+    const apiKey = process.env.GEMINI_API_KEY || process.env.VITE_GEMINI_API_KEY;
     if (!apiKey) {
-      throw new Error('GEMINI_API_KEY 환경변수가 설정되지 않았습니다.');
+      throw new Error('GEMINI_API_KEY 또는 VITE_GEMINI_API_KEY 환경변수가 설정되지 않았습니다.');
     }
     this.ai = new GoogleGenerativeAI(apiKey);
     this.extractedKeywords = new Map();

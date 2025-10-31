@@ -9,12 +9,32 @@ import { createRequire } from 'module';
 import fs from 'fs';
 import path from 'path';
 import { fileURLToPath } from 'url';
-
-const require = createRequire(import.meta.url);
-const { GoogleGenerativeAI } = require('@google/generative-ai');
+import dotenv from 'dotenv';
 
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
+
+// .env.local 파일 로드 (우선순위 높음, 먼저 로드)
+const envLocalPath = path.resolve(__dirname, '..', '.env.local');
+if (fs.existsSync(envLocalPath)) {
+  dotenv.config({ path: envLocalPath });
+  console.log('✅ .env.local 파일 로드 완료');
+}
+
+// .env 파일 로드 (기본값, .env.local이 없을 때 사용)
+dotenv.config();
+
+// 디버깅: 환경변수 확인
+if (process.env.VITE_GEMINI_API_KEY) {
+  console.log('✅ VITE_GEMINI_API_KEY 환경변수 확인됨');
+} else if (process.env.GEMINI_API_KEY) {
+  console.log('✅ GEMINI_API_KEY 환경변수 확인됨');
+} else {
+  console.warn('⚠️ GEMINI_API_KEY 또는 VITE_GEMINI_API_KEY를 찾을 수 없습니다.');
+}
+
+const require = createRequire(import.meta.url);
+const { GoogleGenerativeAI } = require('@google/generative-ai');
 
 // Firebase 초기화
 const firebaseConfig = {
@@ -31,9 +51,10 @@ const db = getFirestore(app);
 
 class FirestoreKeywordExtractor {
   constructor() {
-    const apiKey = process.env.GEMINI_API_KEY;
+    // GEMINI_API_KEY 또는 VITE_GEMINI_API_KEY 둘 다 확인
+    const apiKey = process.env.GEMINI_API_KEY || process.env.VITE_GEMINI_API_KEY;
     if (!apiKey) {
-      throw new Error('GEMINI_API_KEY 환경변수가 설정되지 않았습니다.');
+      throw new Error('GEMINI_API_KEY 또는 VITE_GEMINI_API_KEY 환경변수가 설정되지 않았습니다.');
     }
     this.ai = new GoogleGenerativeAI(apiKey);
     this.allKeywords = new Set();
@@ -126,9 +147,17 @@ JSON 형식으로 응답해주세요:
       const model = this.ai.getGenerativeModel({ model: "gemini-2.0-flash-exp" });
       const result = await model.generateContent(prompt);
       const response = await result.response;
-      const text = response.text();
+      const responseText = response.text();
       
-      const parsed = JSON.parse(text);
+      // JSON 파싱 (마크다운 코드 블록 제거)
+      let cleanedText = responseText.trim();
+      if (cleanedText.startsWith('```json')) {
+        cleanedText = cleanedText.replace(/^```json\n?/, '').replace(/\n?```$/, '');
+      } else if (cleanedText.startsWith('```')) {
+        cleanedText = cleanedText.replace(/^```\n?/, '').replace(/\n?```$/, '');
+      }
+      
+      const parsed = JSON.parse(cleanedText);
       return parsed.keywords || [];
     } catch (error) {
       console.error('AI 키워드 추출 실패:', error);
@@ -233,18 +262,58 @@ JSON 형식으로 응답해주세요 (각 키워드가 key, 동의어 배열이 
       
       const result = await model.generateContent(prompt);
       const response = await result.response;
-      const text = response.text();
+      const responseText = response.text();
       
-      // JSON 파싱 (마크다운 코드 블록 제거)
-      let cleanedText = text.trim();
+      // JSON 파싱 (마크다운 코드 블록 제거 및 정제)
+      let cleanedText = responseText.trim();
+      
+      // 1. 마크다운 코드 블록 제거
       if (cleanedText.startsWith('```json')) {
-        cleanedText = cleanedText.replace(/^```json\n?/, '').replace(/\n?```$/, '');
+        cleanedText = cleanedText.replace(/^```json\s*/i, '').replace(/\s*```\s*$/, '');
       } else if (cleanedText.startsWith('```')) {
-        cleanedText = cleanedText.replace(/^```\n?/, '').replace(/\n?```$/, '');
+        cleanedText = cleanedText.replace(/^```\s*/, '').replace(/\s*```\s*$/, '');
       }
       
-      const parsed = JSON.parse(cleanedText);
-      return parsed;  // { "키워드1": ["동의어1", ...], "키워드2": [...] }
+      // 2. JSON 객체만 추출 (앞뒤 불필요한 텍스트 제거)
+      const jsonMatch = cleanedText.match(/\{[\s\S]*\}/);
+      if (jsonMatch) {
+        cleanedText = jsonMatch[0];
+      }
+      
+      // 3. JSON 파싱 시도
+      try {
+        const parsed = JSON.parse(cleanedText);
+        return parsed;  // { "키워드1": ["동의어1", ...], "키워드2": [...] }
+      } catch (parseError) {
+        // 4. JSON 파싱 실패 시 부분 복구 시도
+        console.warn('JSON 파싱 실패, 부분 복구 시도...');
+        
+        // 불완전한 문자열이나 특수문자로 인한 오류인 경우 복구 시도
+        try {
+          // 따옴표 이스케이프 누락 복구
+          cleanedText = cleanedText.replace(/([{,]\s*"[^"]*):([^"]*")/g, '$1\\:$2');
+          // 줄바꿈 제거 시도
+          cleanedText = cleanedText.replace(/\n/g, '\\n').replace(/\r/g, '');
+          
+          const parsed = JSON.parse(cleanedText);
+          return parsed;
+        } catch (recoveryError) {
+          // 복구 실패 시 첫 번째 JSON 객체만 추출 시도
+          const firstJsonMatch = cleanedText.match(/\{[^}]*\{[\s\S]*?\}[^}]*\}/);
+          if (firstJsonMatch) {
+            try {
+              const parsed = JSON.parse(firstJsonMatch[0]);
+              return parsed;
+            } catch {
+              // 최종 실패
+            }
+          }
+          
+          console.error('JSON 파싱 오류 상세:', parseError.message);
+          console.error('응답 텍스트 (처음 500자):', responseText.substring(0, 500));
+          throw parseError;
+        }
+      }
     } catch (error) {
       console.error(`배치 동의어 생성 실패:`, error);
       return {};
