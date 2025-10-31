@@ -1007,52 +1007,17 @@ export const SourceViewer: React.FC<SourceViewerProps> = ({
                     {(() => {
                       const normalizedContent = normalizeWhitespace(chunk.content);
                       
-                      // 1. 먼저 법령 이름과 조항 강조 적용 (항상 적용)
-                      const withLawHighlight = highlightLawAndArticles(normalizedContent);
-                      
-                      // 2. 검색어나 질문 하이라이트가 있으면 추가 적용
-                      // 법령/조항 하이라이트 결과를 문자열로 변환하여 검색어/질문 단어 찾기
-                      const extractTextForSearch = (node: React.ReactNode): string => {
-                        if (typeof node === 'string') return node;
-                        if (typeof node === 'number') return String(node);
-                        if (Array.isArray(node)) {
-                          return node.map(n => {
-                            if (typeof n === 'string') return n;
-                            if (React.isValidElement(n)) {
-                              // span 요소인 경우 그 안의 텍스트 추출
-                              const props = n.props as { children?: React.ReactNode };
-                              if (n.type === 'span' && props.children) {
-                                return String(props.children);
-                              }
-                              if (props.children) {
-                                return React.Children.toArray(props.children)
-                                  .map(child => typeof child === 'string' ? child : '')
-                                  .join('');
-                              }
-                            }
-                            return '';
-                          }).join('');
-                        }
-                        if (React.isValidElement(node)) {
-                          const props = node.props as { children?: React.ReactNode };
-                          if (props.children) {
-                            return React.Children.toArray(props.children)
-                              .map(child => typeof child === 'string' ? child : '')
-                              .join('');
-                          }
-                        }
-                        return '';
-                      };
-                      
+                      // 검색어나 질문 하이라이트가 있으면 먼저 적용
                       if (searchText.trim()) {
-                        const contentString = extractTextForSearch(withLawHighlight);
-                        return highlightSearchTerm(contentString, searchText.trim());
+                        // 검색어 하이라이트 적용
+                        return highlightSearchTerm(normalizedContent, searchText.trim());
                       } else if (questionContent && questionContent.trim()) {
-                        const contentString = extractTextForSearch(withLawHighlight);
-                        return highlightQuestionWords(contentString, questionContent.trim());
+                        // 질문 단어 하이라이트 적용
+                        return highlightQuestionWords(normalizedContent, questionContent.trim());
                       }
                       
-                      return withLawHighlight;
+                      // 검색어/질문 하이라이트가 없을 때만 법령/조항 하이라이트 적용
+                      return highlightLawAndArticles(normalizedContent);
                     })()}
                   </div>
 
