@@ -258,6 +258,108 @@ export const SourceViewer: React.FC<SourceViewerProps> = ({
     });
   };
 
+  // ✅ 법령 이름과 조항 제목을 강조하는 함수 (React 노드 반환)
+  const highlightLawAndArticles = (text: string | React.ReactNode): React.ReactNode => {
+    // 문자열로 변환
+    let textString = '';
+    if (typeof text === 'string') {
+      textString = text;
+    } else if (React.isValidElement(text)) {
+      // React 요소인 경우 텍스트 추출 (간단한 경우만)
+      textString = String(text);
+    } else if (Array.isArray(text)) {
+      textString = text.map(node => typeof node === 'string' ? node : '').join('');
+    }
+    
+    if (!textString) return text;
+    
+    // 법령 이름 패턴: "XXX법", "XXX시행령", "XXX시행규칙" 등 (줄 시작)
+    const lawNamePattern = /(^|\n)([가-힣\s]+법|([가-힣\s]+시행령)|([가-힣\s]+시행규칙))(?=\s|$|\[)/m;
+    
+    // 조항 패턴: "제N조", "제N조의N", "제N조의N(제목)" 등
+    const articlePattern = /(제\d+조(?:의\d+)?(?:\([^)]+\))?)/g;
+    
+    const parts: React.ReactNode[] = [];
+    const matches: Array<{ type: 'law' | 'article'; index: number; length: number; text: string }> = [];
+    
+    // 법령 이름 찾기 (각 줄의 시작에서)
+    const lines = textString.split('\n');
+    let offset = 0;
+    lines.forEach((line, lineIdx) => {
+      const lawMatch = line.match(/^([가-힣\s]+법|([가-힣\s]+시행령)|([가-힣\s]+시행규칙))(?=\s|$|\[)/);
+      if (lawMatch && lawMatch[0]) {
+        matches.push({
+          type: 'law',
+          index: offset + line.indexOf(lawMatch[0]),
+          length: lawMatch[0].length,
+          text: lawMatch[0]
+        });
+      }
+      offset += line.length + 1; // +1 for newline
+    });
+    
+    // 조항 찾기
+    let match;
+    while ((match = articlePattern.exec(textString)) !== null) {
+      if (match.index !== undefined && match[0]) {
+        matches.push({
+          type: 'article',
+          index: match.index,
+          length: match[0].length,
+          text: match[0]
+        });
+      }
+    }
+    
+    // 인덱스 순으로 정렬
+    matches.sort((a, b) => a.index - b.index);
+    
+    // 겹치는 부분 제거
+    const processedMatches: typeof matches = [];
+    for (let i = 0; i < matches.length; i++) {
+      const current = matches[i];
+      const prev = processedMatches[processedMatches.length - 1];
+      
+      if (!prev || current.index >= prev.index + prev.length) {
+        processedMatches.push(current);
+      }
+    }
+    
+    // 텍스트 분할 및 하이라이트
+    let currentIndex = 0;
+    processedMatches.forEach((matchItem, idx) => {
+      const { index, length, text: matchedText, type } = matchItem;
+      
+      // 매치 전 텍스트 추가
+      if (index > currentIndex) {
+        const beforeText = textString.substring(currentIndex, index);
+        if (beforeText) {
+          parts.push(<React.Fragment key={`before-${idx}`}>{beforeText}</React.Fragment>);
+        }
+      }
+      
+      // 매치된 부분 하이라이트
+      parts.push(
+        <span key={`${type}-${idx}`} className="text-blue-600 font-bold text-base">
+          {matchedText}
+        </span>
+      );
+      
+      currentIndex = index + length;
+    });
+    
+    // 남은 텍스트 추가
+    if (currentIndex < textString.length) {
+      const remainingText = textString.substring(currentIndex);
+      if (remainingText) {
+        parts.push(<React.Fragment key="remaining">{remainingText}</React.Fragment>);
+      }
+    }
+    
+    // 매치가 없으면 원본 반환
+    return parts.length > 0 ? <>{parts}</> : text;
+  };
+
   // ✅ 공백 정규화 함수: 명확한 문단/항목 구분만 유지, 나머지는 공백으로
   const normalizeWhitespace = (text: string): string => {
     if (!text) return text;
@@ -902,11 +1004,56 @@ export const SourceViewer: React.FC<SourceViewerProps> = ({
                   <div className={`text-sm leading-relaxed whitespace-pre-wrap ${
                     isHighlighted ? 'text-brand-primary font-medium' : 'text-brand-text-primary'
                   }`}>
-                    {searchText.trim()
-                      ? highlightSearchTerm(normalizeWhitespace(chunk.content), searchText.trim())
-                      : questionContent && questionContent.trim()
-                        ? highlightQuestionWords(normalizeWhitespace(chunk.content), questionContent.trim())
-                        : normalizeWhitespace(chunk.content)}
+                    {(() => {
+                      const normalizedContent = normalizeWhitespace(chunk.content);
+                      
+                      // 1. 먼저 법령 이름과 조항 강조 적용 (항상 적용)
+                      const withLawHighlight = highlightLawAndArticles(normalizedContent);
+                      
+                      // 2. 검색어나 질문 하이라이트가 있으면 추가 적용
+                      // 법령/조항 하이라이트 결과를 문자열로 변환하여 검색어/질문 단어 찾기
+                      const extractTextForSearch = (node: React.ReactNode): string => {
+                        if (typeof node === 'string') return node;
+                        if (typeof node === 'number') return String(node);
+                        if (Array.isArray(node)) {
+                          return node.map(n => {
+                            if (typeof n === 'string') return n;
+                            if (React.isValidElement(n)) {
+                              // span 요소인 경우 그 안의 텍스트 추출
+                              const props = n.props as { children?: React.ReactNode };
+                              if (n.type === 'span' && props.children) {
+                                return String(props.children);
+                              }
+                              if (props.children) {
+                                return React.Children.toArray(props.children)
+                                  .map(child => typeof child === 'string' ? child : '')
+                                  .join('');
+                              }
+                            }
+                            return '';
+                          }).join('');
+                        }
+                        if (React.isValidElement(node)) {
+                          const props = node.props as { children?: React.ReactNode };
+                          if (props.children) {
+                            return React.Children.toArray(props.children)
+                              .map(child => typeof child === 'string' ? child : '')
+                              .join('');
+                          }
+                        }
+                        return '';
+                      };
+                      
+                      if (searchText.trim()) {
+                        const contentString = extractTextForSearch(withLawHighlight);
+                        return highlightSearchTerm(contentString, searchText.trim());
+                      } else if (questionContent && questionContent.trim()) {
+                        const contentString = extractTextForSearch(withLawHighlight);
+                        return highlightQuestionWords(contentString, questionContent.trim());
+                      }
+                      
+                      return withLawHighlight;
+                    })()}
                   </div>
 
                   {/* 키워드 */}
