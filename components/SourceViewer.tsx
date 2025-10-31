@@ -200,11 +200,7 @@ export const SourceViewer: React.FC<SourceViewerProps> = ({
           behavior: 'smooth'
         });
         
-        // 하이라이트 효과 추가
-        el.classList.add('highlight-animation');
-        setTimeout(() => {
-          el.classList.remove('highlight-animation');
-        }, 2000);
+        // 하이라이트 효과 제거 (텍스트 색상 변경으로만 표시)
         
         // 스크롤 완료 후 observer 재개
         setTimeout(() => {
@@ -213,11 +209,7 @@ export const SourceViewer: React.FC<SourceViewerProps> = ({
       } else if (el) {
         // scrollContainerRef가 없으면 기본 방법 사용
         el.scrollIntoView({ behavior: 'smooth', block: 'center' });
-        el.classList.add('highlight-animation');
-        setTimeout(() => {
-          el.classList.remove('highlight-animation');
-          suppressObserverRef.current = false;
-        }, 2000);
+        suppressObserverRef.current = false;
       }
     };
     
@@ -461,15 +453,8 @@ export const SourceViewer: React.FC<SourceViewerProps> = ({
               clearTimeout(highlightTimeoutRef.current);
             }
             
-            // ✅ highlight-animation 클래스 추가
-            element.classList.add('highlight-animation');
-            
+            // 스크롤만 수행 (노란색 하이라이트 효과 제거)
             element.scrollIntoView({ behavior: 'smooth', block: 'center' });
-            
-            // 하이라이트 효과 (2초 후 제거)
-            highlightTimeoutRef.current = setTimeout(() => {
-              element.classList.remove('highlight-animation');
-            }, 2000);
           }
         }, 100);
       }
@@ -709,7 +694,7 @@ export const SourceViewer: React.FC<SourceViewerProps> = ({
                   ref={(el) => (chunkRefs.current[chunk.id] = el)} // ✅ ref 할당
                   className={`p-4 rounded-lg border-2 transition-all duration-200 ${
                     isHighlighted
-                      ? 'border-yellow-600 bg-yellow-200 text-gray-900 font-medium highlight-animation shadow-xl'
+                      ? 'border-brand-primary bg-brand-surface'
                       : 'border-brand-secondary bg-brand-surface hover:border-brand-primary hover:shadow-sm'
                   }`}
                 >
@@ -737,7 +722,9 @@ export const SourceViewer: React.FC<SourceViewerProps> = ({
                   </div>
 
                   {/* 청크 내용 */}
-                  <div className="text-sm text-brand-text-primary leading-relaxed whitespace-pre-wrap">
+                  <div className={`text-sm leading-relaxed whitespace-pre-wrap ${
+                    isHighlighted ? 'text-brand-primary font-medium' : 'text-brand-text-primary'
+                  }`}>
                     {searchText.trim() ? highlightSearchTerm(chunk.content, searchText.trim()) : chunk.content}
                   </div>
 
