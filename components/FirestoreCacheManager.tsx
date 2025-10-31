@@ -77,10 +77,10 @@ export const FirestoreCacheManager: React.FC = () => {
       <button 
         onClick={() => setIsVisible(true)}
         className="cache-toggle-btn"
-        title="Firestore 캐시 관리"
+        title="캐시관리"
         style={{
           position: 'fixed',
-          bottom: '20px',
+          top: '20px',
           right: '20px',
           width: '50px',
           height: '50px',
@@ -104,7 +104,7 @@ export const FirestoreCacheManager: React.FC = () => {
       className="firestore-cache-manager"
       style={{
         position: 'fixed',
-        bottom: '20px',
+        top: '20px',
         right: '20px',
         width: '350px',
         backgroundColor: 'white',

@@ -382,12 +382,15 @@ function App() {
             </div>
             
             <div className="flex gap-2">
-              <button
-                onClick={() => setShowAdvancedSearchTest(true)}
-                className="px-3 py-2 bg-green-600 text-white rounded-lg hover:bg-green-700 transition-colors text-sm"
-              >
-                🧪 고급 검색 테스트
-              </button>
+              {/* 고급 검색 테스트 버튼 숨김 */}
+              {false && (
+                <button
+                  onClick={() => setShowAdvancedSearchTest(true)}
+                  className="px-3 py-2 bg-green-600 text-white rounded-lg hover:bg-green-700 transition-colors text-sm"
+                >
+                  🧪 고급 검색 테스트
+                </button>
+              )}
               <button
                 onClick={() => setShowCompressionStats(true)}
                 className="px-3 py-2 bg-brand-secondary text-brand-text-primary rounded-lg hover:bg-opacity-80 transition-colors text-xs md:text-sm"
