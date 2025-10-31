@@ -169,23 +169,73 @@ export const SourceViewer: React.FC<SourceViewerProps> = ({
 
   // ✅ 질문 내용에서 의미있는 단어들을 추출하여 하이라이트하는 함수
   const highlightQuestionWords = (text: string, question: string) => {
-    if (!question || !text) return text;
-
-    // 질문에서 의미있는 단어 추출 (2글자 이상의 단어, 조사 제거)
-    // 한국어 조사 및 불용어 제거
-    const stopWords = ['은', '는', '이', '가', '을', '를', '에', '의', '와', '과', '도', '만', '조차', '마저', '까지', '부터', '에서', '에게', '한테', '께', '로', '으로', '것', '수', '있', '없', '되', '하', '등', '때', '경우', '위해', '때문', '인가', '인가요', '인지', '인지요', '있습니', '없습니', '입니다', '까요', '나요', '네요', '세요', '주세요', '해주세요'];
+    if (!question || !text) {
+      console.log('🔍 highlightQuestionWords: question이나 text가 없음', { question, textLength: text?.length });
+      return text;
+    }
     
-    // 질문을 단어로 분리 (공백, 구두점 기준)
-    const words = question
+    console.log('🔍 highlightQuestionWords 호출:', { question, textLength: text.length });
+
+    // 한국어 조사 및 불용어
+    const stopWords = ['은', '는', '이', '가', '을', '를', '에', '의', '와', '과', '도', '만', '조차', '마저', '까지', '부터', '에서', '에게', '한테', '께', '로', '으로', '것', '수', '있', '없', '되', '하', '등', '때', '경우', '위해', '때문', '인가', '인가요', '인지', '인지요', '있습니', '없습니', '입니다', '까요', '나요', '네요', '세요', '주세요', '해주세요', '이야', '이야요', '야', '어', '요'];
+    
+    // 1. 질문을 공백과 구두점으로 분리
+    const wordsFromSpaces = question
       .replace(/[^\w가-힣\s]/g, ' ') // 구두점 제거
       .split(/\s+/) // 공백으로 분리
-      .filter(word => word.length >= 2) // 2글자 이상만
-      .filter(word => !stopWords.includes(word)); // 불용어 제거
+      .filter(word => word.trim().length >= 2); // 2글자 이상만
+    
+    // 2. 한국어 단어에서 조사 제거 (예: "어린이집은" → "어린이집")
+    const wordsWithoutParticles = wordsFromSpaces.map(word => {
+      // 조사가 붙어있는 경우 제거 (은, 는, 이, 가, 을, 를, 에, 의, 와, 과, 도, 만 등)
+      for (const particle of ['은', '는', '이', '가', '을', '를', '에', '의', '와', '과', '도', '만', '에서', '에게', '한테', '께', '로', '으로']) {
+        if (word.endsWith(particle) && word.length > particle.length) {
+          return word.slice(0, -particle.length);
+        }
+      }
+      return word;
+    }).filter(word => word.length >= 2 && !stopWords.includes(word));
+    
+    // 3. 질문 자체에서 2글자 이상의 연속된 한글/영문 추출 (공백 없이도 작동)
+    const continuousWords: string[] = [];
+    const koreanWordRegex = /[가-힣]{2,}/g;
+    const englishWordRegex = /[A-Za-z]{2,}/g;
+    
+    let match;
+    while ((match = koreanWordRegex.exec(question)) !== null) {
+      const word = match[0];
+      // 조사 제거
+      let cleanedWord = word;
+      for (const particle of ['은', '는', '이', '가', '을', '를', '에', '의', '와', '과', '도', '만', '에서', '에게', '한테', '께', '로', '으로', '이야', '이야요', '야']) {
+        if (cleanedWord.endsWith(particle) && cleanedWord.length > particle.length) {
+          cleanedWord = cleanedWord.slice(0, -particle.length);
+        }
+      }
+      if (cleanedWord.length >= 2 && !stopWords.includes(cleanedWord) && !continuousWords.includes(cleanedWord)) {
+        continuousWords.push(cleanedWord);
+      }
+    }
+    
+    while ((match = englishWordRegex.exec(question)) !== null) {
+      const word = match[0].toLowerCase();
+      if (!stopWords.includes(word) && !continuousWords.includes(word)) {
+        continuousWords.push(word);
+      }
+    }
+    
+    // 4. 모든 단어 합치기 (중복 제거)
+    const allWords = Array.from(new Set([...wordsWithoutParticles, ...continuousWords]))
+      .filter(word => word.length >= 2 && !stopWords.includes(word));
 
-    if (words.length === 0) return text;
+    console.log('🔍 추출된 단어들:', { allWords, wordsWithoutParticles, continuousWords });
+
+    if (allWords.length === 0) {
+      console.log('⚠️ 추출된 단어가 없음');
+      return text;
+    }
 
     // 각 단어를 정규식으로 이스케이프하고 패턴 생성
-    const patterns = words.map(word => word.replace(/[.*+?^${}()|[\]\\]/g, '\\$&'));
+    const patterns = allWords.map(word => word.replace(/[.*+?^${}()|[\]\\]/g, '\\$&'));
     
     // 모든 패턴을 하나의 정규식으로 결합
     const combinedPattern = `(${patterns.join('|')})`;
@@ -195,7 +245,7 @@ export const SourceViewer: React.FC<SourceViewerProps> = ({
     const parts = text.split(regex);
     
     return parts.map((part, index) => {
-      // 분할된 부분이 정규식에 매칭된 단어인지 확인 (짝수 인덱스는 매칭되지 않은 부분, 홀수 인덱스는 매칭된 부분)
+      // 분할된 부분이 정규식에 매칭된 단어인지 확인 (홀수 인덱스는 매칭된 부분)
       const isMatched = index % 2 === 1;
       
       return isMatched ? (
@@ -854,8 +904,8 @@ export const SourceViewer: React.FC<SourceViewerProps> = ({
                   }`}>
                     {searchText.trim()
                       ? highlightSearchTerm(normalizeWhitespace(chunk.content), searchText.trim())
-                      : questionContent
-                        ? highlightQuestionWords(normalizeWhitespace(chunk.content), questionContent)
+                      : questionContent && questionContent.trim()
+                        ? highlightQuestionWords(normalizeWhitespace(chunk.content), questionContent.trim())
                         : normalizeWhitespace(chunk.content)}
                   </div>
 
