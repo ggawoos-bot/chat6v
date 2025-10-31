@@ -187,10 +187,13 @@ export const SourceViewer: React.FC<SourceViewerProps> = ({
       // 2. 명확한 새 항목 패턴이면 줄바꿈 유지
       // 숫자, 한자 숫자, 불릿(•, ·), 하이픈(-), 제목(■, ○), 질문(Q.), "제N조" 패턴, 번호(1), 2) 등
       const isNewItem = /^[\d①②③④⑤⑥⑦⑧⑨⑩·\-\•■○]/.test(line) || 
-                       /^제\d+[조항호의]/.test(line) ||
-                       /^\d+[\.\）\)]/.test(line) ||
-                       /^Q\./.test(line) ||
-                       /^[A-Z가-힣]{2,}\s*$/.test(line); // 제목(2글자 이상 한글/영문만)
+                       /^제\d+[의조항호의]/.test(line) ||              // 제6조의3, 제1항, 제6의2호 등
+                       /^\d+[\.\）\)]/.test(line) ||                    // 1., 2), 1) 등
+                       /^\d+의\d+\./.test(line) ||                     // 6의2., 1의1. 등
+                       /^[가-힣]\./.test(line) ||                       // 가., 나., 다. 등 (한글 항목)
+                       /^-{4,}\.?/.test(line) ||                        // 구분선: ---- 이상
+                       /^Q\./.test(line) ||                             // Q. 질문
+                       /^[A-Z가-힣]{2,}\s*$/.test(line);                 // 제목(2글자 이상 한글/영문만)
       
       // 3. 다음 줄이 없거나 빈 줄이면 줄바꿈 유지
       if (!nextLine || nextLine === '' || isNewItem) {
@@ -199,11 +202,14 @@ export const SourceViewer: React.FC<SourceViewerProps> = ({
       }
       
       // 4. 다음 줄이 새 항목이면 줄바꿈 유지
-      const nextIsNewItem = /^[\d①②③④⑤⑥⑦⑧⑨⑩·\-\•■○]/.test(nextLine) || 
-                            /^제\d+[조항호의]/.test(nextLine) ||
-                            /^\d+[\.\）\)]/.test(nextLine) ||
-                            /^Q\./.test(nextLine) ||
-                            /^[A-Z가-힣]{2,}\s*$/.test(nextLine);
+      const nextIsNewItem = /^[\d①②③④⑤⑥⑦⑧⑨⑩·\-\•■○]/.test(nextLine) ||
+                            /^제\d+[의조항호의]/.test(nextLine) ||              // 제6조의3, 제1항, 제6의2호 등
+                            /^\d+[\.\）\)]/.test(nextLine) ||                    // 1., 2), 1) 등
+                            /^\d+의\d+\./.test(nextLine) ||                     // 6의2., 1의1. 등
+                            /^[가-힣]\./.test(nextLine) ||                       // 가., 나., 다. 등 (한글 항목)
+                            /^-{4,}\.?/.test(nextLine) ||                        // 구분선: ---- 이상
+                            /^Q\./.test(nextLine) ||                             // Q. 질문
+                            /^[A-Z가-힣]{2,}\s*$/.test(nextLine);                 // 제목(2글자 이상 한글/영문만)
       
       if (nextIsNewItem) {
         result.push(line);
