@@ -216,14 +216,20 @@ export const SourceViewer: React.FC<SourceViewerProps> = ({
     const lines = text.split('\n').map(line => line.replace(/[ \t]+/g, ' ').trim());
     
     const result: string[] = [];
+    let currentParagraph = ''; // 현재 누적 중인 문단
     
     for (let i = 0; i < lines.length; i++) {
       const line = lines[i];
       const nextLine = lines[i + 1];
       
-      // 1. 빈 줄은 항상 유지 (문단 구분)
+      // 1. 빈 줄은 문단 구분으로 처리
       if (line === '') {
-        result.push('');
+        // 누적된 문단이 있으면 저장
+        if (currentParagraph) {
+          result.push(currentParagraph.trim());
+          currentParagraph = '';
+        }
+        result.push(''); // 빈 줄 유지
         continue;
       }
       
@@ -238,13 +244,26 @@ export const SourceViewer: React.FC<SourceViewerProps> = ({
                        /^Q\./.test(line) ||                             // Q. 질문
                        /^[A-Z가-힣]{2,}\s*$/.test(line);                 // 제목(2글자 이상 한글/영문만)
       
-      // 3. 다음 줄이 없거나 빈 줄이면 줄바꿈 유지
-      if (!nextLine || nextLine === '' || isNewItem) {
+      // 3. 현재 줄이 새 항목이면 줄바꿈 유지
+      if (isNewItem) {
+        // 누적된 문단이 있으면 저장
+        if (currentParagraph) {
+          result.push(currentParagraph.trim());
+          currentParagraph = '';
+        }
         result.push(line);
         continue;
       }
       
-      // 4. 다음 줄이 새 항목이면 줄바꿈 유지
+      // 4. 다음 줄이 없거나 빈 줄이면 줄바꿈 유지
+      if (!nextLine || nextLine === '') {
+        currentParagraph += (currentParagraph ? ' ' : '') + line;
+        result.push(currentParagraph.trim());
+        currentParagraph = '';
+        continue;
+      }
+      
+      // 5. 다음 줄이 새 항목이면 줄바꿈 유지
       const nextIsNewItem = /^[\d①②③④⑤⑥⑦⑧⑨⑩·\-\•■○]/.test(nextLine) ||
                             /^제\d+[의조항호의]/.test(nextLine) ||              // 제6조의3, 제1항, 제6의2호 등
                             /^\d+[\.\）\)]/.test(nextLine) ||                    // 1., 2), 1) 등
@@ -255,12 +274,19 @@ export const SourceViewer: React.FC<SourceViewerProps> = ({
                             /^[A-Z가-힣]{2,}\s*$/.test(nextLine);                 // 제목(2글자 이상 한글/영문만)
       
       if (nextIsNewItem) {
-        result.push(line);
+        currentParagraph += (currentParagraph ? ' ' : '') + line;
+        result.push(currentParagraph.trim());
+        currentParagraph = '';
         continue;
       }
       
-      // 5. 그 외는 모두 공백으로 연결 (문장 중간 줄바꿈으로 판단)
-      result.push(line + ' ');
+      // 6. 그 외는 공백으로 연결 (현재 문단에 누적)
+      currentParagraph += (currentParagraph ? ' ' : '') + line;
+    }
+    
+    // 마지막 누적된 문단이 있으면 추가
+    if (currentParagraph) {
+      result.push(currentParagraph.trim());
     }
     
     return result.join('\n');
