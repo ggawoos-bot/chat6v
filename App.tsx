@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useCallback } from 'react';
 import ChatWindow from './components/ChatWindow';
 import SourceInfo from './components/SourceInfo';
 import CompressionStats from './components/CompressionStats';
@@ -237,13 +237,17 @@ function App() {
     return () => window.removeEventListener('referenceClick', handleReferenceClick as EventListener);
   }, []);
 
-  const handleSendMessage = async (message: string): Promise<string> => {
+  const handleSendMessage = useCallback(async (message: string): Promise<string> => {
     return await geminiService.generateResponse(message);
-  };
+  }, []);
 
-  const handleStreamingMessage = async (message: string): Promise<AsyncGenerator<string, void, unknown>> => {
+  const handleStreamingMessage = useCallback(async (message: string): Promise<AsyncGenerator<string, void, unknown>> => {
     return await geminiService.generateStreamingResponse(message);
-  };
+  }, []);
+
+  const handleResetMessages = useCallback(() => {
+    setMessages([]);
+  }, []);
 
 
   const handleResetChat = () => {
@@ -488,7 +492,7 @@ function App() {
                 key="chat-window" // ✅ 고정 키 사용 (리사이즈나 SourceViewer 변경 시에도 유지)
                 onSendMessage={handleSendMessage}
                 onStreamingMessage={handleStreamingMessage}
-                onResetMessages={() => setMessages([])}
+                onResetMessages={handleResetMessages} // ✅ 메모이제이션된 함수 사용
                 resetTrigger={chatKey} // 이 값이 변경될 때만 리셋
                 placeholder="금연사업 관련 문의사항을 입력하세요..."
               />

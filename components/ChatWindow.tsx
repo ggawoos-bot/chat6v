@@ -33,14 +33,6 @@ const ChatWindow: React.FC<ChatWindowProps> = ({
     scrollToBottom();
   }, [messages]);
 
-  // 외부에서 메시지 초기화 요청 시 처리
-  useEffect(() => {
-    if (onResetMessages) {
-      setMessages([]);
-      setIsProcessing(false);
-    }
-  }, [onResetMessages]);
-
   // resetTrigger가 변경되면 메시지 초기화
   useEffect(() => {
     if (resetTrigger !== undefined && resetTrigger > 0) {
