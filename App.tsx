@@ -24,6 +24,7 @@ function App() {
   // ✅ SourceViewer 상태 관리
   const [selectedDocumentId, setSelectedDocumentId] = useState<string>();
   const [highlightedChunkId, setHighlightedChunkId] = useState<string>();
+  const [questionContent, setQuestionContent] = useState<string>(''); // ✅ 질문 내용 저장
   
   // ✅ PDF 뷰어 상태 관리
   const [pdfViewerMode, setPdfViewerMode] = useState<'text' | 'pdf'>('text');
@@ -205,13 +206,14 @@ function App() {
   useEffect(() => {
     const handleReferenceClick = (event: CustomEvent) => {
       console.log('📥 App.tsx에서 referenceClick 이벤트 수신:', event.detail);
-      const { documentId, chunkId, page, filename } = event.detail;
-      console.log('📝 설정할 값:', { documentId, chunkId, page, filename });
+      const { documentId, chunkId, page, filename, questionContent } = event.detail;
+      console.log('📝 설정할 값:', { documentId, chunkId, page, filename, questionContent });
       
       // ✅ chatKey 변경 방지 (채팅창 초기화 방지)
       if (documentId && chunkId) {
         setSelectedDocumentId(documentId);
         setHighlightedChunkId(chunkId);
+        setQuestionContent(questionContent || ''); // ✅ 질문 내용 설정
         
         // ✅ PDF 페이지 정보가 있으면 PDF 뷰어로 전환 및 페이지 이동
         if (page && page > 0) {
@@ -451,9 +453,11 @@ function App() {
                 <SourceViewer
                   selectedDocumentId={selectedDocumentId}
                   highlightedChunkId={highlightedChunkId}
+                  questionContent={questionContent}
                   onChunkSelect={(chunkId) => {
                     if (chunkId === '') {
                       setHighlightedChunkId(undefined);
+                      setQuestionContent(''); // ✅ 질문 내용 초기화
                     } else {
                       setHighlightedChunkId(chunkId);
                     }

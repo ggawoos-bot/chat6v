@@ -130,8 +130,8 @@ const ChatWindow: React.FC<ChatWindowProps> = ({
           </div>
         )}
         
-        {messages.map((message) => (
-          <Message key={message.id} message={message} />
+        {messages.map((message, index) => (
+          <Message key={message.id} message={message} allMessages={messages} messageIndex={index} />
         ))}
         
         {isProcessing && (

@@ -9,9 +9,11 @@ import CopyIcon from './icons/CopyIcon';
 
 interface MessageProps {
   message: MessageType;
+  allMessages?: MessageType[];
+  messageIndex?: number;
 }
 
-const Message: React.FC<MessageProps> = ({ message }) => {
+const Message: React.FC<MessageProps> = ({ message, allMessages = [], messageIndex = -1 }) => {
   const isUser = message.role === 'user';
   const Icon = isUser ? UserIcon : BotIcon;
   const [isCopied, setIsCopied] = useState(false);
@@ -130,13 +132,26 @@ const Message: React.FC<MessageProps> = ({ message }) => {
         const page = chunk.page || chunk.metadata?.page;
         const filename = chunk.filename || chunk.documentFilename || chunk.metadata?.source || '';
         
+        // ✅ 해당 답변에 해당하는 질문 찾기 (현재 메시지 이전의 user 메시지)
+        let questionContent = '';
+        if (messageIndex > 0 && allMessages.length > 0) {
+          // 현재 메시지 이전에서 가장 가까운 user 메시지를 찾음
+          for (let i = messageIndex - 1; i >= 0; i--) {
+            if (allMessages[i].role === 'user') {
+              questionContent = allMessages[i].content;
+              break;
+            }
+          }
+        }
+        
         console.log('📝 참조 클릭 정보:', {
           referenceNumber,
           documentId,
           chunkId,
           title,
           page,
-          filename
+          filename,
+          questionContent
         });
         
         // ❌ 유효성 검사 추가
@@ -145,14 +160,15 @@ const Message: React.FC<MessageProps> = ({ message }) => {
           return; // 이벤트를 발생시키지 않음
         }
         
-        // 커스텀 이벤트 발생 (PDF 파일명 추가)
+        // 커스텀 이벤트 발생 (PDF 파일명 및 질문 내용 추가)
         window.dispatchEvent(new CustomEvent('referenceClick', {
           detail: {
             documentId,
             chunkId,
             title,
             page,
-            filename // ✅ PDF 파일명 추가
+            filename, // ✅ PDF 파일명 추가
+            questionContent // ✅ 질문 내용 추가
           }
         }));
       }

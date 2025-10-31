@@ -5,6 +5,7 @@ import EmbedPdfViewer from './EmbedPdfViewer';
 interface SourceViewerProps {
   selectedDocumentId?: string;
   highlightedChunkId?: string;
+  questionContent?: string; // ✅ 질문 내용
   onChunkSelect?: (chunkId: string) => void;
   pdfViewerMode?: 'text' | 'pdf';
   pdfCurrentPage?: number;
@@ -16,6 +17,7 @@ interface SourceViewerProps {
 export const SourceViewer: React.FC<SourceViewerProps> = ({
   selectedDocumentId,
   highlightedChunkId,
+  questionContent = '', // ✅ 질문 내용
   onChunkSelect,
   pdfViewerMode = 'text',
   pdfCurrentPage = 1,
@@ -157,6 +159,47 @@ export const SourceViewer: React.FC<SourceViewerProps> = ({
       const isMatch = part.toLowerCase() === searchTerm.toLowerCase();
       return isMatch ? (
         <span key={index} className="search-highlight bg-yellow-200 text-yellow-900 font-medium px-0.5 rounded">
+          {part}
+        </span>
+      ) : (
+        part
+      );
+    });
+  };
+
+  // ✅ 질문 내용에서 의미있는 단어들을 추출하여 하이라이트하는 함수
+  const highlightQuestionWords = (text: string, question: string) => {
+    if (!question || !text) return text;
+
+    // 질문에서 의미있는 단어 추출 (2글자 이상의 단어, 조사 제거)
+    // 한국어 조사 및 불용어 제거
+    const stopWords = ['은', '는', '이', '가', '을', '를', '에', '의', '와', '과', '도', '만', '조차', '마저', '까지', '부터', '에서', '에게', '한테', '께', '로', '으로', '것', '수', '있', '없', '되', '하', '등', '때', '경우', '위해', '때문', '인가', '인가요', '인지', '인지요', '있습니', '없습니', '입니다', '까요', '나요', '네요', '세요', '주세요', '해주세요'];
+    
+    // 질문을 단어로 분리 (공백, 구두점 기준)
+    const words = question
+      .replace(/[^\w가-힣\s]/g, ' ') // 구두점 제거
+      .split(/\s+/) // 공백으로 분리
+      .filter(word => word.length >= 2) // 2글자 이상만
+      .filter(word => !stopWords.includes(word)); // 불용어 제거
+
+    if (words.length === 0) return text;
+
+    // 각 단어를 정규식으로 이스케이프하고 패턴 생성
+    const patterns = words.map(word => word.replace(/[.*+?^${}()|[\]\\]/g, '\\$&'));
+    
+    // 모든 패턴을 하나의 정규식으로 결합
+    const combinedPattern = `(${patterns.join('|')})`;
+    const regex = new RegExp(combinedPattern, 'gi');
+
+    // 텍스트를 분할하고 매칭된 부분을 하이라이트
+    const parts = text.split(regex);
+    
+    return parts.map((part, index) => {
+      // 분할된 부분이 정규식에 매칭된 단어인지 확인 (짝수 인덱스는 매칭되지 않은 부분, 홀수 인덱스는 매칭된 부분)
+      const isMatched = index % 2 === 1;
+      
+      return isMatched ? (
+        <span key={index} className="question-highlight bg-blue-200 text-blue-900 font-medium px-0.5 rounded">
           {part}
         </span>
       ) : (
@@ -785,7 +828,9 @@ export const SourceViewer: React.FC<SourceViewerProps> = ({
                   }`}>
                     {searchText.trim()
                       ? highlightSearchTerm(normalizeWhitespace(chunk.content), searchText.trim())
-                      : normalizeWhitespace(chunk.content)}
+                      : questionContent
+                        ? highlightQuestionWords(normalizeWhitespace(chunk.content), questionContent)
+                        : normalizeWhitespace(chunk.content)}
                   </div>
 
                   {/* 키워드 */}
