@@ -953,10 +953,10 @@ export const SourceViewer: React.FC<SourceViewerProps> = ({
         </div>
       </div>
 
-      {/* 컨텐츠 영역 - 화면 높이에 맞춤 (calc 사용, 상단 헤더 ~100px + SourceViewer 헤더 ~120px + 작업표시줄 ~50px), 스크롤 포함 (텍스트 전용) */}
-      <div className="min-h-0 overflow-hidden flex-1" style={{ height: 'calc(100vh - 270px)' }}>
+      {/* 컨텐츠 영역 - 고정 높이 1000px, 스크롤 포함 (텍스트 전용) */}
+      <div className="min-h-0 overflow-hidden">
         {/* 텍스트 뷰 (청크 목록) */}
-        <div className="relative h-full">
+        <div className="relative h-[1000px]">
           <div
             ref={scrollContainerRef}
             onWheel={handleWheelInScrollArea}
