@@ -165,12 +165,14 @@ export const SourceViewer: React.FC<SourceViewerProps> = ({
     });
   };
 
-  // ✅ 공백 정규화 함수: 모든 공백 문자를 단일 스페이스로 통일
+  // ✅ 공백 정규화 함수: 줄 내부의 공백만 정규화하고 줄바꿈은 유지
   const normalizeWhitespace = (text: string): string => {
     if (!text) return text;
-    // 모든 종류의 공백 문자(스페이스, 탭, 줄바꿈 등)를 하나 이상의 연속된 패턴으로 찾아 단일 스페이스로 대체
-    // 줄바꿈은 단일 스페이스로 변환
-    return text.replace(/\s+/g, ' ').trim();
+    // 줄바꿈으로 분리한 후, 각 줄 내부의 공백과 탭만 정규화
+    // 줄바꿈은 유지하여 PDF처럼 읽기 쉽게 표시
+    return text.split('\n')
+               .map(line => line.replace(/[ \t]+/g, ' ').trim())
+               .join('\n');
   };
 
   // 검색 결과로 이동하는 헬퍼 함수
@@ -730,7 +732,7 @@ export const SourceViewer: React.FC<SourceViewerProps> = ({
                   </div>
 
                   {/* 청크 내용 */}
-                  <div className={`text-sm leading-relaxed ${
+                  <div className={`text-sm leading-relaxed whitespace-pre-wrap ${
                     isHighlighted ? 'text-brand-primary font-medium' : 'text-brand-text-primary'
                   }`}>
                     {searchText.trim()
